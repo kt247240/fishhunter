@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#04111c">
+  <title>ANON. Operator — FishHunter 運営コンソール</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/ops.css">
+</head>
+<body class="ops">
+  <header class="topbar ops-top">
+    <div class="brand"><div><b>ANON.<span> OPERATOR</span></b><small id="dataStamp">データ準備中…</small></div></div>
+    <div class="top-actions"><a class="btn sm" href="app.html">アプリ</a><button class="btn sm" id="btnReload" type="button">再取得</button></div>
+  </header>
+  <main class="ops-main">
+    <div class="banner ops-rule">ここで作るのは<b>下書き</b>です。投稿・送信の前に、必ずオーナーが内容・安全表現・画像を確認してください（<code>ops/README.md</code>の承認ルール）。</div>
+
+    <section class="card">
+      <div class="card-head"><h3>週末の時合予報</h3><span class="muted small" id="wkRange"></span></div>
+      <div class="ops-drafts" id="weekendDrafts"><div class="skeleton" style="height:160px"></div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>安全アラート <small>今後72時間の危険判定</small></h3></div>
+      <div class="ops-drafts" id="safetyDrafts"><div class="skeleton" style="height:100px"></div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>今日のイチオシ</h3></div>
+      <div class="ops-drafts" id="todayDrafts"><div class="skeleton" style="height:100px"></div></div>
+    </section>
+
+    <div id="sceneHost" class="ops-scene" aria-hidden="true"><canvas id="scene"></canvas><div id="sceneUi"><div class="scene-chip"><b data-scene-title></b><span data-scene-sub></span></div></div></div>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/diagnostics.js"></script>
+  <script src="js/spots.js"></script>
+  <script src="js/astro.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/motion.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/share.js"></script>
+  <script src="js/operator.js"></script>
+</body>
+</html>

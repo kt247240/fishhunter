@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#04111c">
+  <meta name="description" content="新潟・長野の釣り場×魚種×時間を、気象・海況・潮・月から読み解く釣果向上アプリ">
+  <title>FishHunter — 新潟・長野 釣果インテリジェンス</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="preload" href="assets/angler.webp" as="image" type="image/webp">
+  <script>try{var t=localStorage.getItem('fh.theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot-sonar"><i></i><i></i><i></i><b></b></div>
+    <div class="boot-logo">FISH<span>HUNTER</span></div>
+    <div class="boot-tag">NIIGATA × NAGANO FIELD INTELLIGENCE</div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand" aria-label="FishHunter">
+      <svg viewBox="0 0 32 32" class="brand-mark" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-opacity=".35"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-opacity=".55"/><path d="M16 16 L16 2 A14 14 0 0 1 29 11 Z" fill="currentColor" fill-opacity=".35"/><circle cx="22" cy="9" r="2" fill="currentColor"/></svg>
+      <div><b>FISH<span>HUNTER</span></b><small id="dataStamp">データ準備中…</small></div>
+    </div>
+    <div class="pickers">
+      <label class="pick"><span>釣り場</span><select id="spotPick" aria-label="釣り場"></select></label>
+      <label class="pick"><span>ターゲット</span><select id="huntTarget" aria-label="ターゲット魚種"></select></label>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnRefresh" title="最新データを取得" aria-label="最新データを取得"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+      <button class="icon-btn" id="btnTheme" title="日中モード切替" aria-label="日中モード切替"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main id="main">
+    <!-- ───────────── NOW ───────────── -->
+    <section class="view" id="view-now" data-view="now">
+      <section class="hero" id="hero" aria-label="現在の釣り場シーン">
+        <canvas id="scene" role="img" aria-label="現在の空・海況・時間帯を再現したシーン"></canvas>
+        <div class="hero-ui" id="sceneUi">
+          <div class="scene-chip"><i class="live-dot"></i><b data-scene-title>—</b><span data-scene-sub></span></div>
+          <div class="sonar" aria-hidden="true"><i></i><i></i><i></i><b></b><em id="sonarBlips"></em></div>
+          <div class="fishon" data-fishon aria-hidden="true"><span>FISH</span><span>ON!</span></div>
+          <div class="hero-card" data-scene-inset>
+            <div class="eyebrow">NEXT DECISION</div>
+            <h2 id="heroTitle">—</h2>
+            <p id="heroSub">データを読み込んでいます…</p>
+            <div class="hero-meta" id="heroMeta"></div>
+          </div>
+        </div>
+      </section>
+      <div class="section-head"><h2>今行くならここ</h2><span class="hint" id="pickHint">今後18時間の全釣り場×魚種から算出</span>
+        <div class="seg" id="pickScope" hidden><button data-scope="mine" type="button">マイ</button><button data-scope="all" type="button">全域</button></div></div>
+      <div class="picks" id="topPicks" data-stagger><div class="skeleton pick-card"></div><div class="skeleton pick-card"></div><div class="skeleton pick-card"></div></div>
+
+      <div class="section-head"><h2>週末の時合</h2><span class="hint" id="wkHint">土日のベスト3</span></div>
+      <div class="weekend" id="weekend"><div class="skeleton" style="height:150px"></div><div class="skeleton" style="height:150px"></div></div>
+
+      <div class="grid-2">
+        <article class="card focus">
+          <div class="focus-head">
+            <div>
+              <div class="eyebrow" id="spotMeta">—</div>
+              <h1 id="spotName">—</h1>
+              <div class="chips" id="spotChips"></div>
+            </div>
+            <div class="ring-wrap" id="spotScore" aria-live="polite"></div>
+          </div>
+          <p class="score-note">スコアは条件の一致度です。釣れる確率ではありません。</p>
+          <div id="safety" class="safety" hidden></div>
+          <div class="factors" id="factors"></div>
+          <div class="windows">
+            <h3>次の時合 <small>72時間以内</small></h3>
+            <ol id="windows" data-stagger class="window-list"></ol>
+          </div>
+          <div class="focus-actions">
+            <a class="btn primary" id="routeLink" target="_blank" rel="noopener">ルート案内</a>
+            <button class="btn" id="btnCard" type="button">📸 画像で共有</button>
+            <button class="btn" id="btnShare" type="button">テキスト共有</button>
+            <button class="btn" data-goto="hunt" type="button">攻略法を見る</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h3>フィールド状況 <small id="fieldNowAt"></small></h3></div>
+          <div id="fieldNow" class="tiles"></div>
+          <div class="astro-strip" id="astroStrip"></div>
+        </article>
+      </div>
+
+      <article class="card chart-card">
+        <div class="card-head">
+          <h3>72時間 釣果予測</h3>
+          <div class="seg" id="chartRange" role="tablist">
+            <button data-h="24" type="button">24h</button><button data-h="72" type="button" class="on">72h</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="chart" aria-label="釣果スコアの時間変化グラフ" role="img"></canvas><div class="chart-tip" id="chartTip" hidden></div></div>
+        <div class="legend"><span><i class="lg score"></i>釣果スコア</span><span><i class="lg env"></i><em id="legendEnv">波高</em></span><span><i class="lg maz"></i>マズメ</span><span><i class="lg sol"></i>ソルナー</span><span><i class="lg night"></i>夜間</span></div>
+      </article>
+    </section>
+
+    <!-- ───────────── MAP ───────────── -->
+    <section class="view" id="view-map" data-view="map" hidden>
+      <div class="map-layout">
+        <div class="card map-card">
+          <div id="map" class="map"><div class="map-fallback">地図を読み込み中…</div></div>
+          <div class="map-tools">
+            <div class="seg" id="prefFilter"><button data-pref="" class="on" type="button">全域</button><button data-pref="新潟" type="button">新潟</button><button data-pref="長野" type="button">長野</button></div>
+            <button class="btn sm" id="btnLocate" type="button">現在地から距離</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3><span id="rankTitle">ランキング</span> <small>今後24h ピーク</small></h3></div>
+          <ol class="rank" id="rankList" data-stagger></ol>
+        </div>
+      </div>
+      <article class="card">
+        <div class="card-head"><h3>釣り場カルテ</h3></div>
+        <div id="facts" class="facts"></div>
+      </article>
+    </section>
+
+    <!-- ───────────── HUNT ───────────── -->
+    <section class="view" id="view-hunt" data-view="hunt" hidden>
+      <div class="grid-2">
+        <article class="card hunt-hero">
+          <div class="focus-head">
+            <div>
+              <div class="eyebrow" id="huntMeta">—</div>
+              <h1 id="huntName">—</h1>
+              <p class="muted" id="huntSub"></p>
+            </div>
+            <div class="ring-wrap" id="huntScore"></div>
+          </div>
+          <div class="season">
+            <h3>シーズンカレンダー</h3>
+            <div class="season-bars" id="seasonBars"></div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h3>今の状況での攻め方</h3></div>
+          <div id="tactics" data-stagger class="tactics"></div>
+        </article>
+      </div>
+      <div class="grid-2">
+        <article class="card">
+          <div class="card-head"><h3>釣法・タックル</h3></div>
+          <div id="methods" class="methods"></div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h3>この魚種のベスト釣り場 <small>今後72h</small></h3></div>
+          <ol class="rank" id="huntRank" data-stagger></ol>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────── LOG ───────────── -->
+    <section class="view" id="view-log" data-view="log" hidden>
+      <div class="grid-2">
+        <article class="card">
+          <div class="card-head"><h3>釣果を記録</h3><small class="muted">条件は自動で保存されます</small></div>
+          <form id="logForm" class="log-form" autocomplete="off">
+            <label>日時<input type="datetime-local" name="when" required></label>
+            <label>釣り場<select name="spot" required></select></label>
+            <label>魚種<select name="species" required></select></label>
+            <div class="row">
+              <label>サイズ(cm)<input type="number" name="size" min="0" max="300" step="0.5" inputmode="decimal"></label>
+              <label>匹数<input type="number" name="count" min="1" max="999" value="1" inputmode="numeric"></label>
+            </div>
+            <label>釣法<select name="method"></select></label>
+            <div class="row">
+              <label>ルアー/エサ<input type="text" name="lure" maxlength="60" placeholder="例: エギ3号"></label>
+              <label>カラー<input type="text" name="lureColor" maxlength="30" list="colorList" placeholder="例: オレンジ金"></label>
+            </div>
+            <datalist id="colorList"><option value="ナチュラル"><option value="オレンジ"><option value="ピンク"><option value="チャート"><option value="ゴールド"><option value="赤テープ"><option value="ケイムラ"><option value="グロー"><option value="クリア"><option value="ブラック"></datalist>
+            <label>メモ<textarea name="memo" rows="2" maxlength="400" placeholder="状況・ヒットパターンなど"></textarea></label>
+            <label class="file">写真<input type="file" name="photo" accept="image/*"></label>
+            <button class="btn primary block" type="submit">記録する</button>
+          </form>
+        </article>
+        <article class="card">
+          <div class="card-head"><h3>あなたの勝ちパターン</h3>
+            <select id="analysisSpecies" class="mini-select" aria-label="分析する魚種"></select>
+          </div>
+          <div id="analysis" class="analysis"></div>
+          <div class="log-io">
+            <button class="btn sm" id="btnExport" type="button">バックアップ書き出し</button>
+            <label class="btn sm">読み込み<input type="file" id="importFile" accept="application/json" hidden></label>
+          </div>
+        </article>
+      </div>
+      <article class="card">
+        <div class="card-head"><h3>釣果フィード</h3>
+          <div class="seg" id="feedTab"><button data-f="mine" class="on" type="button">マイ釣果</button><button data-f="public" type="button">公開釣果情報</button></div>
+        </div>
+        <div id="postFeed" data-stagger class="feed"></div>
+      </article>
+    </section>
+
+    <!-- ───────────── SYSTEM ───────────── -->
+    <section class="view" id="view-sys" data-view="sys" hidden>
+      <div class="grid-2">
+        <article class="card">
+          <div class="card-head"><h3>システム診断</h3></div>
+          <div id="systemDiag" class="diag"></div>
+          <div class="log-io">
+            <button class="btn sm" id="btnForce" type="button">強制再取得</button>
+            <button class="btn sm" id="btnClearCache" type="button">気象キャッシュ削除</button>
+            <button class="btn sm" id="btnPrefs" type="button">エリア・魚種を設定</button>
+            <button class="btn sm primary" id="btnInstall" type="button" hidden>📲 ホーム画面に追加</button>
+          </div>
+        </article>
+        <article class="card about">
+          <div class="card-head"><h3>スコアの考え方</h3></div>
+          <p>釣果スコア(0〜99)は、<b>旬</b>を土台に、<b>時間帯（マズメ・夜）</b>、<b>水温</b>、<b>海況（波・風・濁り）</b>／<b>水量</b>、<b>気圧変化</b>、<b>潮回り</b>、<b>ソルナー（月の南中・出入り）</b>を魚種ごとの好みで重み付けし、公開釣果情報とあなた自身の実績パターンで補正しています。</p>
+          <p>海の水温は Open-Meteo Marine の海面水温、湖・川は直近72時間の気温から<b>推定</b>しています。日本海は潮位差が小さいため、潮回りの重みは控えめです。</p>
+          <h3>安全について</h3>
+          <p class="warn-text">高波・突風・増水・雷の予報時はスコアに関わらず<b>釣行を中止</b>してください。ライフジャケット着用、立入禁止区域の遵守、漁協の遊漁規則（遊漁券・解禁期間・禁漁区）の確認は必須です。本アプリは判断材料であり、安全を保証するものではありません。</p>
+          <p class="muted small">気象: Open-Meteo（CC BY 4.0） / 地図: 国土地理院タイル・OpenStreetMap / 天文計算: アプリ内算出</p>
+          <p class="muted small" id="versionText"></p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="メインメニュー">
+    <button data-tab="now" class="on" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1.5"/></svg><span>今日</span></button>
+    <button data-tab="map" type="button"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span>釣り場</span></button>
+    <button data-tab="hunt" type="button"><svg viewBox="0 0 24 24"><path d="M3 12c3-5 9-7 14-4l4-3v14l-4-3c-5 3-11 1-14-4z"/><circle cx="15" cy="11" r="1"/></svg><span>攻略</span></button>
+    <button data-tab="log" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>釣果</span></button>
+    <button data-tab="sys" type="button"><svg viewBox="0 0 24 24"><path d="M4 18h3l3-9 4 12 3-7h3"/></svg><span>診断</span></button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/diagnostics.js"></script>
+  <script src="js/spots.js"></script>
+  <script src="js/astro.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/feed.js"></script>
+  <script src="js/catchlog.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/motion.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/share.js"></script>
+  <script src="js/prefs.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+/* ANON. Operator console */
+body.ops { padding-bottom: 40px; }
+.ops-top { grid-template-columns: 1fr auto; }
+.ops-top .brand b span { color: var(--accent); }
+.ops-main { max-width: 980px; margin: 0 auto; padding: 14px 16px; display: grid; gap: 14px; }
+.ops-rule { margin: 0; }
+.ops-drafts { display: grid; gap: 12px; }
+.draft { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--surface-2); }
+.draft-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; }
+.draft-head .count { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.draft-head .count.over { color: var(--danger); font-weight: 800; }
+.draft textarea { width: 100%; resize: vertical; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); padding: 10px; font-size: 14px; line-height: 1.6; font-family: var(--font); }
+.draft-act { display: flex; gap: 8px; margin-top: 8px; }
+.ops-scene { position: fixed; left: -2000px; top: 0; width: 540px; height: 700px; }
+.ops-scene canvas { width: 540px; height: 700px; display: block; }

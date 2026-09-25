@@ -1,0 +1,15 @@
+{
+  "name": "FishHunter — 新潟・長野 釣果インテリジェンス",
+  "short_name": "FishHunter",
+  "description": "新潟・長野の釣り場×魚種×時間を、気象・海況・潮・月から読み解く釣果向上アプリ",
+  "start_url": "app.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04111c",
+  "theme_color": "#04111c",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
