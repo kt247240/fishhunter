@@ -61,4 +61,21 @@ test('visitor count', () => {
   assert.equal(extractVisitors('本日の入場者数：６６名'), 66);
   assert.equal(extractVisitors('入場者数：１１０'), 110);
 });
+const { youtubeReports } = await import('./intel/collect.mjs');
+test('YouTube search items → first-hand shore catch reports only', () => {
+  const now = new Date().toISOString();
+  const src = { id: 'youtube', name: 'YouTube', type: 'video' };
+  const items = [
+    { id: { videoId: 'a1' }, snippet: { publishedAt: now, title: '直江津港でアジ入れ食い！サビキで30匹', description: '夕まずめに25cmの良型も', channelTitle: 'ANONチャンネル' } },
+    { id: { videoId: 'b2' }, snippet: { publishedAt: now, title: '直江津沖の船釣りでマダイ', description: '遊漁船で出船', channelTitle: 'X' } },
+    { id: { videoId: 'c3' }, snippet: { publishedAt: now, title: '新作ルアー紹介', description: '釣りに行きたい', channelTitle: 'Y' } },
+    { id: { videoId: 'd4' }, snippet: { publishedAt: '2020-01-01T00:00:00Z', title: '直江津でアジ30匹', description: '', channelTitle: 'Z' } }
+  ];
+  const r = youtubeReports(src, items);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].url, 'https://www.youtube.com/watch?v=a1');
+  assert.ok(r[0].spots.includes('naoetsu'));
+  assert.equal(r[0].catches.find((c) => c.sp === 'aji').count, 30);
+  assert.equal(r[0].author, 'ANONチャンネル');
+});
 console.log(`\nFishHunter intel tests: ${passed} passed`);

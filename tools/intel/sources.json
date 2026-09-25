@@ -313,6 +313,25 @@
       "url": "https://kishinami.jp/resultplace/%E6%9D%91%E4%B8%8A%E5%B8%82/feed/"
     },
     {
+      "id": "youtube",
+      "name": "YouTube（公開動画）",
+      "type": "video",
+      "mode": "youtube",
+      "note": "YouTube Data API v3（要 YOUTUBE_API_KEY）。無料枠内に収めるため6時間ごとに実行し、それ以外は前回結果を引き継ぐ",
+      "queries": [
+        "直江津 釣り",
+        "糸魚川 釣り",
+        "上越 釣り",
+        "柏崎 釣り",
+        "新潟東港 釣り",
+        "新潟 堤防 釣り",
+        "佐渡 釣り",
+        "野尻湖 バス",
+        "諏訪湖 ワカサギ",
+        "千曲川 釣り"
+      ]
+    },
+    {
       "id": "bluesky",
       "name": "Bluesky（公開投稿）",
       "type": "sns",
@@ -342,11 +361,11 @@
   "linkOnly": [
     {
       "name": "X（旧Twitter）",
-      "reason": "ログイン必須・API有料のため自動取得しない。釣り場ごとの検索リンクで案内"
+      "reason": "ログイン必須・公式APIは有料のため自動取得しない。釣り場ごとの検索リンクで案内"
     },
     {
       "name": "Instagram",
-      "reason": "ログイン必須のため自動取得しない。ハッシュタグ検索リンクで案内"
+      "reason": "公式API（ハッシュタグ検索）はビジネスアカウントとMetaの審査が必要。準備でき次第導入。現在は検索リンクで案内"
     },
     {
       "name": "アングラーズ",

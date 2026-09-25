@@ -79,9 +79,25 @@ function segments(t) {
 export function extractCatches(text) {
   const t = normalize(text);
   const out = [];
+  let last = null;
   for (const seg of segments(t)) {
     const hits = [...seg.matchAll(SPECIES_RE)].map((m) => ({ alias: m[0], index: m.index }));
-    if (!hits.length) continue;
+    if (!hits.length) {
+      // "アジ入れ食い！サビキで30匹": a count/size sentence right after a bare mention belongs to that fish.
+      if (last && last.mention) {
+        const cnt = seg.match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
+        const size = seg.match(/(\d{1,3}(?:\.\d)?)\s*cm/i);
+        if (cnt || size) {
+          if (cnt) last.count = parseInt(cnt[1], 10);
+          if (size) { last.max = parseFloat(size[1]); last.min = last.min == null ? last.max : last.min; }
+          const m = METHODS.find(([, re]) => re.test(seg));
+          if (m && !last.method) last.method = m[0];
+          last.mention = false;
+        }
+      }
+      last = null;
+      continue;
+    }
     const segMethod = METHODS.find(([, re]) => re.test(seg));
     const segPos = positionOf(seg.slice(0, hits[0].index)) || null;
     const verb = CATCH_VERB.test(seg);
@@ -101,7 +117,7 @@ export function extractCatches(text) {
       }
       const methodInTail = METHODS.find(([, re]) => re.test(tail));
       const pos = positionOf(tail) || segPos;
-      out.push({
+      out.push(last = {
         sp: info.id, name: info.id ? SPECIES.find((s) => s[0] === info.id)[1] : info.other, alias: h.alias,
         count: cnt ? parseInt(cnt[1], 10) : null, min, max,
         method: (methodInTail || segMethod || [null])[0],

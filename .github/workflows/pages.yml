@@ -36,6 +36,10 @@ jobs:
           node tools/test-intel.mjs
       - name: Collect catch intel (non-blocking)
         continue-on-error: true
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          PREV_INTEL_URL: https://kt247240.github.io/fishhunter/data/intel.json
+          YOUTUBE_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: node tools/intel/collect.mjs data/intel.json
       - id: pages
         uses: actions/configure-pages@v5

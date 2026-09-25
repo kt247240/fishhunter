@@ -143,6 +143,62 @@ async function collectHtml(src) {
   return items.filter((it) => it.date && NOW - it.date <= MAX_AGE).map((it) => toReport(src, it, it.extra || {})).filter(useful);
 }
 
+/* ───────── YouTube Data API v3 (official; needs YOUTUBE_API_KEY) ─────────
+ * search.list costs 100 quota units; the free quota is 10,000/day. We run the
+ * queries only every 6 hours (≈4,000 units/day) and otherwise carry over the
+ * previous YouTube reports from the live site. */
+let PREV = null;
+async function previousIntel() {
+  if (PREV !== null) return PREV;
+  PREV = {};
+  const url = process.env.PREV_INTEL_URL;
+  if (!url) return PREV;
+  try { const r = await get(url + '?t=' + Date.now(), 'application/json'); if (r.ok) PREV = await r.json(); } catch (_) { /* first run */ }
+  return PREV;
+}
+
+export function youtubeReports(src, items) {
+  const out = [];
+  for (const v of items || []) {
+    const sn = v.snippet || {};
+    const id = v.id && (v.id.videoId || v.id);
+    const date = Date.parse(sn.publishedAt);
+    if (!id || !isFinite(date) || NOW - date > 14 * DAY) continue;
+    const title = decodeEntities(sn.title || '');
+    const text = decodeEntities(sn.description || '');
+    if (BOAT_RE.test(title + text)) continue;
+    const rep = toReport(src, { title, url: 'https://www.youtube.com/watch?v=' + id, date, text }, { author: sn.channelTitle || null });
+    if (rep.catches.length && (rep.spots.length || rep.area)) out.push(rep);
+  }
+  return out;
+}
+const decodeEntities = (s) => s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+async function collectYoutube(src) {
+  const key = process.env.YOUTUBE_API_KEY;
+  const due = process.env.YOUTUBE_FORCE === '1' || new Date().getUTCHours() % 6 === 0;
+  if (!key || !due) {
+    const prev = await previousIntel();
+    const carried = (prev.reports || []).filter((r) => r.src === src.id && NOW - r.date <= 14 * DAY);
+    if (!key && !carried.length) throw new Error('APIキー未設定（YOUTUBE_API_KEY）');
+    return carried;
+  }
+  const out = [];
+  const seen = new Set();
+  const after = new Date(NOW - 14 * DAY).toISOString();
+  for (const q of src.queries) {
+    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=date&maxResults=15&regionCode=JP&relevanceLanguage=ja' +
+      `&publishedAfter=${encodeURIComponent(after)}&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`;
+    const r = await get(url, 'application/json');
+    if (r.status === 403) throw new Error('YouTube API 403（キーの制限または上限）');
+    if (!r.ok) { await sleep(800); continue; }
+    const j = await r.json();
+    for (const rep of youtubeReports(src, (j.items || []).filter((it) => !seen.has(it.id.videoId) && seen.add(it.id.videoId)))) out.push(rep);
+    await sleep(800);
+  }
+  return out;
+}
+
 async function collectBsky(src) {
   const out = [];
   const seen = new Set();
@@ -217,7 +273,7 @@ async function main() {
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
-      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : [];
+      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : src.mode === 'youtube' ? await collectYoutube(src) : [];
       reports.push(...r);
       health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
     } catch (e) {
@@ -240,4 +296,4 @@ async function main() {
   console.log(JSON.stringify({ out: OUT, reports: list.length, catches: list.reduce((n, r) => n + r.catches.length, 0), sources: health }, null, 1));
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+if (process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]))) main().catch((e) => { console.error(e); process.exit(1); });
