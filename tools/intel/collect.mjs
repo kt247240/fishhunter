@@ -1,0 +1,167 @@
+// FishHunter catch-intel collector.
+//   node tools/intel/collect.mjs [out.json]
+// Pulls public syndication feeds (RSS/Atom) and the Bluesky public search API,
+// turns reports into structured catches, and aggregates per spot / area.
+// Politeness: identified UA, robots-respecting sources only (see sources.json),
+// sequential requests with a delay, short excerpts + links only.
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { extractCatches, extractTime, extractColorNotes, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+
+const root = path.resolve(new URL('../..', import.meta.url).pathname);
+const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
+const OUT = process.argv[2] || path.join(root, 'data/intel.json');
+const UA = 'FishHunter/2.0 (+https://kt247240.github.io/fishhunter/; catch-intel collector)';
+const DAY = 86400e3;
+const NOW = Date.now();
+const MAX_AGE = 30 * DAY;
+
+// Spot knowledge base from the app itself.
+const ctx = {}; ctx.globalThis = ctx; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(root, 'js/spots.js'), 'utf8'), ctx);
+const SPOTS = ctx.FH.SPOTS;
+const AREA_WORDS = [
+  ['上越', /上越|糸魚川|能生|名立|直江津|親不知/], ['中越', /柏崎|長岡|出雲崎|寺泊|燕|三条|魚沼/], ['下越', /新潟市|新潟東港|新潟西港|村上|新発田|聖籠|胎内|岩船/],
+  ['佐渡', /佐渡/], ['北信', /野尻湖|長野市|信濃町|須坂|飯山/], ['中信', /安曇野|松本|大町|木崎湖|青木湖|梓川/], ['東信', /上田|佐久|小海|松原湖/], ['南信', /諏訪|伊那|木曽|天竜/]
+];
+
+const BOT_RE = /記事の要約|をお届け|お伝えします|振り返|に関する記事|明日の朝まずめ|明朝の|釣り情報|最新釣果|最適な時間帯|#PR|プレゼント|キャンペーン/;
+const BOAT_RE = /沖で|沖では|沖の|船釣り|遊漁船|乗合|ジギング船|タイラバ船/;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function get(url, accept) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(url, { headers: { 'user-agent': UA, accept: accept || '*/*', 'accept-language': 'ja,en;q=0.7' }, signal: ctl.signal, redirect: 'follow' });
+    return r;
+  } finally { clearTimeout(t); }
+}
+
+function parseFeed(xml) {
+  const items = [];
+  const blocks = [...xml.matchAll(/<item[\s>]([\s\S]*?)<\/item>/g), ...xml.matchAll(/<entry[\s>]([\s\S]*?)<\/entry>/g)].map((m) => m[1]);
+  const tag = (b, n) => { const m = b.match(new RegExp(`<${n}[^>]*>([\\s\\S]*?)<\\/${n}>`)); return m ? m[1].replace(/^<!\[CDATA\[|\]\]>$/g, '').trim() : ''; };
+  for (const b of blocks) {
+    const link = tag(b, 'link') || ((b.match(/<link[^>]+href="([^"]+)"/) || [])[1] || '');
+    const html = tag(b, 'content:encoded') || tag(b, 'content') || tag(b, 'description') || tag(b, 'summary');
+    const date = Date.parse(tag(b, 'pubDate') || tag(b, 'updated') || tag(b, 'published') || tag(b, 'dc:date'));
+    items.push({ title: stripHtml(tag(b, 'title')).trim(), url: link.trim(), date: isFinite(date) ? date : null, text: stripHtml(html) });
+  }
+  return items;
+}
+
+function areaOf(text, fallback) {
+  const hit = AREA_WORDS.find(([, re]) => re.test(text));
+  return hit ? hit[0] : fallback || null;
+}
+
+function toReport(src, it, extra = {}) {
+  const full = `${it.title}\n${it.text}`;
+  const catches = extractCatches(full);
+  const spots = [...new Set([...(src.spots || []), ...matchSpots(full, SPOTS)])];
+  return {
+    id: Buffer.from(it.url || it.title).toString('base64url').slice(-24),
+    src: src.id, srcName: src.name, type: src.type,
+    title: snippet(it.title, 60), url: it.url, date: it.date,
+    area: areaOf(full, src.area || (spots[0] && SPOTS.find((s) => s.id === spots[0]).area)),
+    spots, text: snippet(it.text, 160),
+    catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text),
+    ...extra
+  };
+}
+
+async function collectRss(src) {
+  const r = await get(src.url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const items = parseFeed(await r.text());
+  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE).map((it) => toReport(src, it));
+}
+
+async function collectBsky(src) {
+  const out = [];
+  const seen = new Set();
+  for (const q of src.queries) {
+    const url = `https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${encodeURIComponent(q)}&sort=latest&limit=25`;
+    try {
+      const r = await get(url, 'application/json');
+      if (!r.ok) { await sleep(1500); continue; }
+      const j = await r.json();
+      for (const p of j.posts || []) {
+        if (seen.has(p.uri)) continue; seen.add(p.uri);
+        const text = (p.record && p.record.text) || '';
+        // Skip automated digests / forecast bots: we want first-hand catches only.
+        if (BOT_RE.test(text) || BOAT_RE.test(text) || (p.author && /bot|news|info/i.test(p.author.handle))) continue;
+        const date = Date.parse((p.record && p.record.createdAt) || p.indexedAt);
+        if (!isFinite(date) || NOW - date > 14 * DAY) continue;
+        const rkey = p.uri.split('/').pop();
+        const rep = toReport(src, { title: text.split('\n')[0], url: `https://bsky.app/profile/${p.author.handle}/post/${rkey}`, date, text }, { author: '@' + p.author.handle });
+        // SNS noise filter: needs a real catch (size/count or catch verb) and a known place.
+        if (rep.catches.length && (rep.spots.length || rep.area)) out.push(rep);
+      }
+    } catch (_) { /* one query failing must not stop the rest */ }
+    await sleep(1200);
+  }
+  // High-frequency posters of catch digests are aggregators, not anglers on the spot.
+  const per = {};
+  out.forEach((r) => { per[r.author] = (per[r.author] || 0) + 1; });
+  return out.filter((r) => per[r.author] < 5);
+}
+
+function aggregate(reports, since) {
+  const recent = reports.filter((r) => r.date && r.date >= since);
+  const bucket = () => ({ reports: 0, fish: 0, maxSize: null, last: 0, methods: {}, times: {} });
+  const add = (map, r, c) => {
+    const k = c.sp || c.name;
+    const b = map[k] || (map[k] = Object.assign(bucket(), { sp: c.sp, name: c.name }));
+    b.reports++; b.fish += c.mention ? 0 : c.count || 1;
+    if (c.max != null) b.maxSize = Math.max(b.maxSize || 0, c.max);
+    b.last = Math.max(b.last, r.date || 0);
+    if (c.method) b.methods[c.method] = (b.methods[c.method] || 0) + 1;
+    r.time.buckets.forEach((t) => { b.times[t] = (b.times[t] || 0) + 1; });
+  };
+  const spots = {}, areas = {}, all = {};
+  for (const r of recent) {
+    for (const c of r.catches) {
+      r.spots.forEach((sid) => add(spots[sid] || (spots[sid] = {}), r, c));
+      if (r.area) add(areas[r.area] || (areas[r.area] = {}), r, c);
+      add(all, r, c);
+    }
+  }
+  const list = (m) => Object.values(m).sort((a, b) => b.fish - a.fish || b.last - a.last).slice(0, 12);
+  return {
+    spots: Object.fromEntries(Object.entries(spots).map(([k, v]) => [k, list(v)])),
+    areas: Object.fromEntries(Object.entries(areas).map(([k, v]) => [k, list(v)])),
+    all: list(all)
+  };
+}
+
+async function main() {
+  const reports = [];
+  const health = [];
+  for (const src of cfg.sources) {
+    const t0 = Date.now();
+    try {
+      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'bsky' ? await collectBsky(src) : [];
+      reports.push(...r);
+      health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
+    } catch (e) {
+      health.push({ id: src.id, name: src.name, type: src.type, ok: false, error: String(e.message || e), ms: Date.now() - t0 });
+    }
+    await sleep(1500);
+  }
+  // De-duplicate by URL, newest first, cap size.
+  const seen = new Set();
+  const list = reports.filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).sort((a, b) => (b.date || 0) - (a.date || 0)).slice(0, 400);
+  const out = {
+    schema: 'fishhunter.intel/1', generated_at: new Date().toISOString(),
+    policy: cfg.policy, sources: health, linkOnly: cfg.linkOnly,
+    count: list.length, reports: list,
+    stats: { d7: aggregate(list, NOW - 7 * DAY), d30: aggregate(list, NOW - 30 * DAY) }
+  };
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, JSON.stringify(out));
+  console.log(JSON.stringify({ out: OUT, reports: list.length, catches: list.reduce((n, r) => n + r.catches.length, 0), sources: health }, null, 1));
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

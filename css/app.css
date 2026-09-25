@@ -521,3 +521,23 @@ main { max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 .wk-row:hover { border-color: var(--line-2); transform: translateX(3px); }
 .wk-row .pk { font-size: 20px; font-weight: 800; color: var(--tone); text-align: center; }
 .wk-row small { color: var(--muted); }
+
+/* ═════════════════ v20 CATCH RADAR ═════════════════ */
+.radar { display: grid; gap: 12px; }
+.rd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rd-row { display: grid; grid-template-columns: 88px 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
+.rd-row.pick { cursor: pointer; }
+.rd-row.pick:hover { border-color: var(--line-2); }
+.rd-row.on { border-color: var(--accent); box-shadow: var(--glow); }
+.rd-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.rd-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--c, var(--accent)), color-mix(in srgb, var(--c, var(--accent)) 50%, var(--accent-2))); animation: grow 1s cubic-bezier(.2, .8, .2, 1) both; transform-origin: left; animation-delay: calc(var(--i, 0) * 70ms + .1s); }
+.rd-val { font-weight: 800; text-align: right; }
+.rd-sub { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+.rd-tip { font-size: 13px; }
+.rd-h { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.rd-reps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rd-rep { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); display: grid; gap: 6px; }
+.rd-rep-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+.sns-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.post .chips { display: flex; flex-wrap: wrap; gap: 4px; }

@@ -1,5 +1,5 @@
 /* FishHunter service worker — app shell offline, network-first for data. */
-const VERSION = 'fh-v19.0.0';
+const VERSION = 'fh-v20.0.0';
 const SHELL = [
   './', 'app.html', 'index.html', 'css/app.css', 'css/lp.css', 'js/lp.js', 'ops.html', 'css/ops.css', 'js/operator.js', 'manifest.webmanifest', 'icons/icon.svg',
   'js/diagnostics.js', 'js/spots.js', 'js/astro.js', 'js/weather.js', 'js/feed.js',

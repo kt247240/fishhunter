@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "policy": "Collect only public feeds/APIs intended for syndication, respect robots.txt, one request per source per run, store short excerpts + links only (no images).",
+  "sources": [
+    {
+      "id": "happyfishing-naoetsu",
+      "name": "ハッピーフィッシング直江津（管理釣り場）",
+      "type": "official",
+      "area": "上越",
+      "spots": ["naoetsu"],
+      "mode": "rss",
+      "url": "https://happyfishing-n.jp/feed/",
+      "page": "https://happyfishing-n.jp/category/catch/"
+    },
+    {
+      "id": "happyfishing-higashi",
+      "name": "ハッピーフィッシング新潟東港（管理釣り場）",
+      "type": "official",
+      "area": "下越",
+      "spots": ["niigata-east"],
+      "mode": "rss",
+      "url": "https://happyfishing.jp/feed/",
+      "page": "https://happyfishing.jp/category/catch/"
+    },
+    {
+      "id": "bluesky",
+      "name": "Bluesky（公開投稿）",
+      "type": "sns",
+      "mode": "bsky",
+      "queries": [
+        "直江津 釣り", "糸魚川 釣り", "上越 釣果", "能生 釣り", "柏崎 釣り", "寺泊 釣り", "新潟 釣果", "新潟東港",
+        "村上 釣り", "佐渡 釣り", "野尻湖 バス", "野尻湖 ワカサギ", "諏訪湖 ワカサギ", "木崎湖", "千曲川 釣り", "犀川 釣り", "魚野川 釣り", "天竜川 アユ"
+      ]
+    }
+  ],
+  "linkOnly": [
+    { "name": "X（旧Twitter）", "reason": "ログイン必須・API有料のため自動取得しない。釣り場ごとの検索リンクで案内" },
+    { "name": "Instagram", "reason": "ログイン必須のため自動取得しない。ハッシュタグ検索リンクで案内" },
+    { "name": "アングラーズ", "reason": "会員制サービス。リンクで案内" }
+  ]
+}

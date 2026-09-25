@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v19.0.0 OPERATOR';
+  const VERSION = 'v20.0.0 CATCH RADAR';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -185,6 +185,7 @@
     renderAstro(sp);
     renderChart(sp, fish, now);
     renderHero(sp, fish, c, cur, wins, now);
+    renderRadar(sp, fish);
     renderPicks();
   }
 
@@ -224,6 +225,60 @@
       const r = 20 + (x.peak / 100) * 26;
       return `<i style="left:${50 + Math.cos(ang) * r}%;top:${50 + Math.sin(ang) * r}%;--d:${((ang + Math.PI / 2) / (Math.PI * 2)) * 4}s"></i>`;
     }).join('');
+  }
+
+  const shortName = (n) => n.replace(/（.*?）/g, '');
+  function snsLinks(sp, fish) {
+    const q = `${shortName(sp.name)} ${fish ? shortName(fish.name).split('・')[0] : '釣り'}`;
+    const tag = shortName(sp.name).replace(/[・\s]/g, '') + '釣り';
+    return [
+      ['X', `https://x.com/search?q=${encodeURIComponent(q + ' 釣果')}&f=live`],
+      ['Instagram', `https://www.instagram.com/explore/tags/${encodeURIComponent(tag)}/`],
+      ['YouTube', `https://www.youtube.com/results?search_query=${encodeURIComponent(q + ' 釣り')}&sp=CAI%253D`],
+      ['Bluesky', `https://bsky.app/search?q=${encodeURIComponent(q)}`]
+    ];
+  }
+
+  function catchChip(c) {
+    const size = c.max ? (c.min && c.min !== c.max ? `${c.min}〜${c.max}cm` : c.min ? `${c.max}cm` : `〜${c.max}cm`) : '';
+    return `<span class="chip${c.sp ? ' dot' : ''}" ${c.sp ? `style="--c:${FH.speciesById[c.sp].color}"` : ''}>${esc(c.alias || c.name)}${c.count ? '×' + c.count : ''}${size ? ' ' + size : ''}</span>`;
+  }
+
+  function renderRadar(sp, fish) {
+    $('#snsLinks').innerHTML = '<span class="muted small">SNSで最新を見る：</span>' + snsLinks(sp, fish).map(([n, u]) => `<a class="btn sm" href="${u}" target="_blank" rel="noopener">${n}</a>`).join('');
+    if (!FH.feed.loaded()) {
+      $('#radarScope').textContent = '';
+      $('#radar').innerHTML = '<p class="muted small">公開釣果の取得待ちです（公開版では2〜3時間ごとに自動更新）。</p>';
+      return;
+    }
+    const rd = FH.feed.radar(sp, 7);
+    $('#radarStamp').textContent = FH.feed.generatedAt() ? '収集 ' + ago(Date.parse(FH.feed.generatedAt())) : '';
+    $('#radarScope').textContent = rd && rd.scope !== 'none' ? `${rd.label} ・ 直近7日` : '';
+    if (!rd || !rd.list.length) {
+      $('#radar').innerHTML = `<p class="muted small">この釣り場・エリアの直近の公開釣果はまだありません。SNSの最新投稿も確認してみてください。</p>`;
+      return;
+    }
+    const max = Math.max(...rd.list.map((x) => x.fish || x.reports));
+    const rows = rd.list.slice(0, 6).map((x, i) => {
+      const m = Object.entries(x.methods || {}).sort((a, b) => b[1] - a[1])[0];
+      const t = Object.entries(x.times || {}).sort((a, b) => b[1] - a[1])[0];
+      const on = x.sp && x.sp === fish.id;
+      const pickable = x.sp && sp.species.includes(x.sp);
+      return `<li class="rd-row${on ? ' on' : ''}${pickable ? ' pick' : ''}" ${pickable ? `data-rsp="${x.sp}"` : ''} style="--i:${i}${x.sp ? ';--c:' + FH.speciesById[x.sp].color : ''}">
+        <span class="rd-name">${esc(shortName(x.name))}</span>
+        <span class="rd-bar"><i style="width:${Math.max(6, ((x.fish || x.reports) / max) * 100)}%"></i></span>
+        <span class="rd-val num">${x.fish ? x.fish + '匹' : x.reports + '件'}</span>
+        <span class="rd-sub">${x.maxSize ? '最大' + x.maxSize + 'cm' : ''}${m ? ' ・ ' + esc(m[0]) : ''}${t ? ' ・ ' + esc(t[0]) + 'に多い' : ''}</span></li>`;
+    }).join('');
+    const ins = FH.feed.insight(sp, fish);
+    const tip = ins ? `<div class="insight rd-tip">💡 <b>${esc(shortName(fish.name))}の直近実績</b>（${ins.reports}件）${ins.maxSize ? ` 最大${ins.maxSize}cm` : ''}${ins.methods.length ? ' ／ ' + ins.methods.map(([k, n]) => `${esc(k)}${n}`).join('・') : ''}${ins.colors.length ? `<br><span class="small">「${esc(ins.colors[0])}」</span>` : ''}</div>` : '';
+    const rec = FH.feed.recent(sp, 4).map((r) => `<li class="rd-rep">
+        <div class="rd-rep-h"><span class="chip">${esc({ official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協' }[r.type] || '情報')}</span><b>${esc(r.srcName)}</b><span class="muted small">${md(r.date)} ${hm(r.date)}</span></div>
+        <div class="chips">${r.catches.filter((c) => !c.mention).slice(0, 5).map(catchChip).join('')}</div>
+        <a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事を見る →</a></li>`).join('');
+    $('#radar').innerHTML = `<ol class="rd-list" data-stagger>${rows}</ol>${tip}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
+      <p class="muted small">公開情報を自動で集計した目安です。釣り場全体の傾向であり、特定の場所での釣果を保証するものではありません。</p>`;
+    FH.motion.stagger($('#radar'));
   }
 
   function hookOpts(sp, fish, c) {
@@ -374,7 +429,7 @@
         <a class="btn sm primary" href="https://www.google.com/maps/dir/?api=1&destination=${sp.lat},${sp.lon}" target="_blank" rel="noopener">Googleマップでルート</a>
         <a class="btn sm" href="https://maps.gsi.go.jp/#15/${sp.lat}/${sp.lon}/" target="_blank" rel="noopener">地理院地図（地形）</a>
         <a class="btn sm" href="https://www.google.com/search?q=${encodeURIComponent(sp.name + ' 釣果')}" target="_blank" rel="noopener">最新釣果を検索</a>
-        <a class="btn sm" href="https://x.com/search?q=${encodeURIComponent(sp.name + ' 釣果')}&f=live" target="_blank" rel="noopener">Xで検索</a>
+        ${snsLinks(sp, species()).map(([n, u]) => `<a class="btn sm" href="${u}" target="_blank" rel="noopener">${n}</a>`).join('')}
       </div>`;
   }
 
@@ -405,6 +460,7 @@
       row('層', 'レンジ', esc(t.layer)),
       row('速', 'スピード', esc(t.speed)),
       row('狙', '狙い所', t.aim.map(esc).join(' ／ ')),
+      (() => { const ins = FH.feed.insight(sp, fish); return ins ? row('実', `直近の実績（${ins.reports}件）`, esc(ins.methods.map(([k, n]) => `${k}${n}`).join('・') || '釣法の記載なし') + (ins.maxSize ? ` ／ 最大${ins.maxSize}cm` : ''), ins.colors[0] ? esc('「' + ins.colors[0] + '」') : '') : ''; })(),
       t.notes.length ? `<div class="tac"><span class="ic">!</span><div><div class="k">今日のポイント</div><ul>${t.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div></div>` : ''
     ].join('');
 
@@ -512,16 +568,18 @@
     }
     const items = FH.feed.list({ limit: 40 });
     if (!FH.feed.loaded()) {
-      el.innerHTML = '<div class="empty" style="grid-column:1/-1">公開釣果スナップショットに接続できません（任意機能）。<br>診断タブで状態を確認できます。</div>';
+      el.innerHTML = '<div class="empty" style="grid-column:1/-1">公開釣果の取得待ちです（公開版では2〜3時間ごとに自動更新）。<br>診断タブで状態を確認できます。</div>';
       return;
     }
-    el.innerHTML = items.map((it) => `<article class="post">
-      <div class="body"><h4>${esc((it.species || []).join('・') || it.title || '釣果情報')}</h4>
-      <div class="meta">${esc(it.source || '')} ・ ${esc(it.area || '')}${it.date_text ? ' ・ ' + esc(it.date_text) : ''}</div>
-      <div class="memo">${esc(String(it.title || '').slice(0, 120))}</div>
-      <div class="foot"><span class="chip">${esc({ official: '公式', shop: '釣具店', community: 'コミュニティ', social: 'SNS' }[it.source_type] || '情報')}</span>
-      ${/^https?:\/\//.test(it.url || '') ? `<a href="${esc(it.url)}" target="_blank" rel="noopener nofollow">元記事 →</a>` : ''}</div></div></article>`).join('') +
-      `<p class="muted small" style="grid-column:1/-1">公開情報の自動収集です。エリア内の最近の活性の目安であり、特定地点での釣果を保証するものではありません。${FH.feed.generatedAt() ? '収集: ' + esc(ago(Date.parse(FH.feed.generatedAt()))) : ''}</p>`;
+    const TYPE = { official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協' };
+    el.innerHTML = items.map((r) => `<article class="post">
+      <div class="body"><h4>${esc(r.spots.map((id) => (FH.spotById[id] || {}).name).filter(Boolean).join('・') || r.area || '')} ${esc(r.title)}</h4>
+      <div class="meta">${esc(r.srcName)}${r.author ? ' ' + esc(r.author) : ''} ・ ${md(r.date)} ${hm(r.date)}</div>
+      <div class="chips">${r.catches.filter((c) => !c.mention).slice(0, 8).map(catchChip).join('')}</div>
+      ${r.colors && r.colors[0] ? `<div class="memo small">💡 ${esc(r.colors[0])}</div>` : ''}
+      <div class="foot"><span class="chip">${esc(TYPE[r.type] || '情報')}</span>
+      ${/^https?:\/\//.test(r.url || '') ? `<a href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事 →</a>` : ''}</div></div></article>`).join('') +
+      `<p class="muted small" style="grid-column:1/-1">公式の管理釣り場の釣果報告と、SNSの公開投稿を自動で集計しています（抜粋とリンクのみ保存）。エリアの傾向の目安であり、釣果を保証するものではありません。${FH.feed.generatedAt() ? '収集: ' + esc(ago(Date.parse(FH.feed.generatedAt()))) : ''}</p>`;
   }
 
   async function onLogSubmit(ev) {
@@ -584,7 +642,9 @@
       { label: 'オフライン対応', state: env.sw ? 'ok' : 'warn', detail: env.sw ? 'Service Worker 有効' : '未登録（初回訪問 or 非対応環境）' },
       { label: 'ローカル保存', state: env.storage ? 'ok' : 'error', detail: env.storage ? '釣果ログ・キャッシュ保存可' : '保存不可（プライベートモード？）' }
     ];
-    $('#systemDiag').innerHTML = [...svcs, ...envRows].map((s) =>
+    const srcRows = FH.feed.sources().map((x) => ({ label: '釣果ソース：' + x.name, state: x.ok ? (x.count ? 'ok' : 'warn') : 'error', detail: x.ok ? `${x.count}件（直近30日）` : '取得失敗: ' + (x.error || ''), ms: x.ms }));
+    const linkRows = FH.feed.linkOnly().map((x) => ({ label: 'リンク案内のみ：' + x.name, state: 'warn', detail: x.reason }));
+    $('#systemDiag').innerHTML = [...svcs, ...envRows, ...srcRows, ...linkRows].map((s) =>
       `<div class="svc"><span class="st ${s.state}"></span><div>${esc(s.label)}<small>${esc(s.detail || '')}${s.at ? ' ・ ' + ago(s.at) : ''}</small></div><span class="ms">${s.ms != null ? s.ms + 'ms' : ''}</span></div>`).join('') +
       (state.data ? `<p class="muted small">気象データ取得: ${md(state.data.fetchedAt)} ${hm(state.data.fetchedAt)}${state.data.fromCache ? '（キャッシュ）' : ''} ／ 地点 ${Object.keys(state.data.wx || {}).length}・海況 ${Object.keys(state.data.marine || {}).length}</p>` : '');
     $('#versionText').textContent = `FishHunter ${VERSION} ／ 釣り場 ${FH.SPOTS.length} ・ 魚種 ${FH.SPECIES.length}`;
@@ -652,6 +712,8 @@
       if (go) { show(go.dataset.goto); g.scrollTo({ top: 0 }); return; }
       const card = e.target.closest('.pick-card');
       if (card) { select(card.dataset.spot, card.dataset.sp, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      const rsp = e.target.closest('[data-rsp]');
+      if (rsp) { select(null, rsp.dataset.rsp); return; }
       const wk = e.target.closest('.wk-row');
       if (wk) { select(wk.dataset.spot, wk.dataset.sp); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const chip = e.target.closest('#spotChips [data-sp]');
