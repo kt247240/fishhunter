@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v20.1.0 CATCH RADAR';
+  const VERSION = 'v20.2.0 CATCH RADAR';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -278,9 +278,27 @@
         <div class="rd-rep-h"><span class="chip">${esc({ official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協' }[r.type] || '情報')}</span><b>${esc(r.srcName)}</b><span class="muted small">${md(r.date)} ${hm(r.date)}</span></div>
         <div class="chips">${r.catches.filter((c) => !c.mention).slice(0, 5).map(catchChip).join('')}</div>
         <a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事を見る →</a></li>`).join('');
+    const pm = FH.feed.pierMap(sp, fish);
+    const vis = FH.feed.visitors(sp);
+    let pierHtml = '';
+    if (pm) {
+      const mx = Math.max(...pm.bins.map((b) => pm.kind === 'm' ? Math.max(b.in, b.out) : b.total), 1);
+      const cell = (v) => `<span class="pm-cell" style="--a:${(v / mx).toFixed(2)}">${v ? Math.round(v) : ''}</span>`;
+      const rows = pm.kind === 'm'
+        ? `<div class="pm-row"><span class="pm-lab">外側</span>${pm.bins.map((b) => cell(b.out)).join('')}</div>
+           <div class="pm-row"><span class="pm-lab">内側</span>${pm.bins.map((b) => cell(b.in)).join('')}</div>`
+        : `<div class="pm-row"><span class="pm-lab">釣果</span>${pm.bins.map((b) => cell(b.total)).join('')}</div>`;
+      const topTxt = pm.top ? (pm.kind === 'm' && pm.top.label !== '先端' ? `${pm.top.out >= pm.top.in ? '外側' : '内側'} ${pm.top.label}` : pm.top.label) : '';
+      pierHtml = `<div class="pier-map"><h4 class="rd-h">🧭 堤防のどこで釣れている？ <small>直近14日・${esc(pm.species ? shortName(pm.species) : '全魚種')}・${pm.n}件</small></h4>
+        <div class="pm-grid" style="--cols:${pm.bins.length}">${rows}
+        <div class="pm-row pm-axis"><span class="pm-lab">${pm.kind === 'm' ? 'm' : '番'}</span>${pm.bins.map((b) => `<span>${esc(b.label.replace('m〜', '').replace('〜', '-').replace('番', ''))}</span>`).join('')}</div></div>
+        <p class="small">いちばん多いのは <b>${esc(topTxt)}</b>${pm.kind === 'm' ? '（入口からの距離）' : ''}${vis ? ` ／ 入場者 ${vis.latest}名（${md(vis.date)}・14日平均${vis.avg}名）` : ''}</p></div>`;
+    } else if (vis) {
+      pierHtml = `<p class="small">入場者 ${vis.latest}名（${md(vis.date)}・14日平均${vis.avg}名）</p>`;
+    }
     const nts = FH.feed.notices(sp);
     const ntsHtml = nts.length ? `<div class="rd-notices"><h4 class="rd-h">📢 お知らせ（漁協・管理者）</h4>${nts.map((n) => `<a class="rd-notice" href="${esc(n.url)}" target="_blank" rel="noopener nofollow"><b>${md(n.date)}</b> ${esc(n.text)} <span class="muted small">— ${esc(n.src)}</span></a>`).join('')}</div>` : '';
-    $('#radar').innerHTML = `${ntsHtml}<ol class="rd-list" data-stagger>${rows}</ol>${tip}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
+    $('#radar').innerHTML = `${ntsHtml}<ol class="rd-list" data-stagger>${rows}</ol>${tip}${pierHtml}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
       <p class="muted small">公開情報を自動で集計した目安です。釣り場全体の傾向であり、特定の場所での釣果を保証するものではありません。</p>`;
     FH.motion.stagger($('#radar'));
   }

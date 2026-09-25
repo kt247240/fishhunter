@@ -1,6 +1,6 @@
 // Catch-intel extractor tests (synthetic samples in the formats seen in public feeds).
 import assert from 'node:assert/strict';
-import { extractCatches, extractTime, extractColorNotes, matchSpots } from './intel/extract.mjs';
+import { extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name); throw e; } };
@@ -47,5 +47,18 @@ test('spot matching via aliases', () => {
   const spots = [{ id: 'naoetsu', name: '直江津港', feedAliases: ['直江津'] }, { id: 'nojiri', name: '野尻湖' }];
   assert.equal(matchSpots('直江津でアジ', spots).join(), 'naoetsu');
   assert.equal(matchSpots('野尻湖でスモール', spots).join(), 'nojiri');
+});
+test('pier positions: metres + side, numbered posts, tip', () => {
+  const a = extractCatches('４９０ｍ 外側 アジ２７ｃｍ 遠投カゴ釣り')[0];
+  assert.equal(a.pos.m, 490); assert.equal(a.pos.side, '外側');
+  const b = extractCatches('サバ　２６～３０cm　５匹　３，３５番　遠投サビキ')[0];
+  assert.equal(b.pos.no.join(), '3,35');
+  const c = extractCatches('イナダ　５３cm　１匹　先端　泳がせ')[0];
+  assert.equal(c.pos.tip, true);
+  assert.equal(positionOf('足元で'), null);
+});
+test('visitor count', () => {
+  assert.equal(extractVisitors('本日の入場者数：６６名'), 66);
+  assert.equal(extractVisitors('入場者数：１１０'), 110);
 });
 console.log(`\nFishHunter intel tests: ${passed} passed`);

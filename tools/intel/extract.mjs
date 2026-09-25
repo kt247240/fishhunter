@@ -42,6 +42,8 @@ const ALL = [
 // Guard common false positives: アジング (method), シーバス vs バス handled by longest-first; スモール alone must be followed by fish context.
 const SPECIES_RE = new RegExp(ALL.map((x) => esc(x.a) + (x.a === 'アジ' ? '(?!ング)' : '') + (x.a === 'スモール' || x.a === 'ラージ' ? '(?=\\s*\\d|マウス|サイズ)' : '')).join('|'), 'g');
 const byAlias = Object.fromEntries(ALL.map((x) => [x.a, x]));
+// "先端" starts a new catch only when a fish name follows it (直江津 style); otherwise it is a trailing position (東港 style).
+const TIP_SPLIT = new RegExp('\\s(?=先\\s?端\\s*(?:内側|外側)?\\s*(?:' + ALL.map((x) => esc(x.a)).join('|') + '))');
 
 export function normalize(text) {
   return String(text || '')
@@ -67,7 +69,8 @@ const CATCH_VERB = /釣れ|釣果|ヒット|キャッチ|ゲット|GET|上が(�
 function segments(t) {
   return t
     .split(/\n+|。|!|！|★|【|】|※/)
-    .flatMap((s) => s.split(/\s(?=\d{2,3}m\s|先\s?端\s)/))
+    .flatMap((s) => s.split(/\s(?=\d{2,3}m\s)/))
+    .flatMap((s) => s.split(TIP_SPLIT))
     .map((s) => s.trim())
     .filter((s) => s.length >= 2);
 }
@@ -80,6 +83,7 @@ export function extractCatches(text) {
     const hits = [...seg.matchAll(SPECIES_RE)].map((m) => ({ alias: m[0], index: m.index }));
     if (!hits.length) continue;
     const segMethod = METHODS.find(([, re]) => re.test(seg));
+    const segPos = positionOf(seg.slice(0, hits[0].index)) || null;
     const verb = CATCH_VERB.test(seg);
     hits.forEach((h, i) => {
       const tail = seg.slice(h.index + h.alias.length, i + 1 < hits.length ? hits[i + 1].index : seg.length);
@@ -96,11 +100,13 @@ export function extractCatches(text) {
         if (max > 250) { min = max = null; }
       }
       const methodInTail = METHODS.find(([, re]) => re.test(tail));
+      const pos = positionOf(tail) || segPos;
       out.push({
         sp: info.id, name: info.id ? SPECIES.find((s) => s[0] === info.id)[1] : info.other, alias: h.alias,
         count: cnt ? parseInt(cnt[1], 10) : null, min, max,
         method: (methodInTail || segMethod || [null])[0],
-        mention: !size && !cnt
+        mention: !size && !cnt,
+        ...(pos ? { pos } : {})
       });
     });
   }
@@ -158,4 +164,24 @@ export function extractNotices(title, text) {
     if (out.length >= 3) break;
   }
   return out;
+}
+
+/**
+ * Position on a managed pier: "490m 外側" (distance from the entrance + side),
+ * "35番" / "3,35番" (numbered posts), or "先端" (tip).
+ */
+export function positionOf(text) {
+  const t = normalize(text);
+  const m = t.match(/(\d{2,3})\s*m\s*(内側|外側)?/);
+  if (m && +m[1] <= 1500) return { m: +m[1], side: m[2] || null };
+  const n = t.match(/(\d{1,3}(?:\s*[,、・]\s*\d{1,3})*)\s*番/);
+  if (n) return { no: n[1].split(/\s*[,、・]\s*/).map(Number).filter((x) => x > 0 && x < 300) };
+  if (/先\s?端/.test(t)) return { tip: true, side: (t.match(/先\s?端\s*(内側|外側)/) || [])[1] || null };
+  return null;
+}
+
+/** Daily visitor count at a managed fishing area ("入場者数：66名"). */
+export function extractVisitors(text) {
+  const m = normalize(text).match(/入場者数\s*[:：]?\s*(\d{1,4})/);
+  return m ? +m[1] : null;
 }

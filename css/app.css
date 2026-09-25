@@ -544,3 +544,10 @@ main { max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 .rd-notices { display: grid; gap: 6px; }
 .rd-notice { display: block; padding: 8px 10px; border-radius: 10px; background: rgba(255, 209, 102, .08); border: 1px solid rgba(255, 209, 102, .3); color: var(--text); text-decoration: none; font-size: 13px; }
 .rd-notice b { color: var(--ok); margin-right: 4px; }
+.pier-map { display: grid; gap: 8px; }
+.pm-grid { display: grid; gap: 3px; overflow-x: auto; }
+.pm-row { display: grid; grid-template-columns: 34px repeat(var(--cols), minmax(26px, 1fr)); gap: 3px; align-items: center; }
+.pm-lab { font-size: 11px; color: var(--muted); }
+.pm-cell { height: 30px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; font-family: var(--mono);
+  background: color-mix(in srgb, var(--hot) calc(var(--a) * 85%), var(--surface-2)); color: var(--text); border: 1px solid var(--line); }
+.pm-axis span { font-size: 10px; color: var(--faint); text-align: center; font-family: var(--mono); }

@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { extractCatches, extractTime, extractColorNotes, extractNotices, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+import { extractCatches, extractTime, extractColorNotes, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
@@ -76,6 +76,7 @@ function toReport(src, it, extra = {}) {
     area, spots, text: snippet(it.text, 160),
     catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text),
     notices: src.type === 'coop' || src.type === 'official' ? extractNotices(it.title, it.text) : [],
+    ...(src.type === 'official' && extractVisitors(it.text) != null ? { visitors: extractVisitors(it.text) } : {}),
     ...rest
   };
 }
@@ -83,9 +84,14 @@ function toReport(src, it, extra = {}) {
 const useful = (r) => (r.catches.length || r.notices.length || r.obs) && (r.area || r.spots.length);
 
 async function collectRss(src) {
-  const r = await get(src.url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const items = parseFeed(await r.text());
+  const items = [];
+  for (let page = 1; page <= (src.pages || 1); page++) {
+    const url = page === 1 ? src.url : src.url + (src.url.includes('?') ? '&' : '?') + 'paged=' + page;
+    const r = await get(url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
+    if (!r.ok) { if (page === 1) throw new Error('HTTP ' + r.status); break; }
+    items.push(...parseFeed(await r.text()));
+    if (page < (src.pages || 1)) await sleep(1500);
+  }
   const tf = src.titleFilter ? new RegExp(src.titleFilter) : null;
   return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful);
 }

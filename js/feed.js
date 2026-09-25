@@ -104,13 +104,49 @@
     return rs.slice(0, n).map((r) => ({ text: r.notices[0], src: r.srcName, date: r.date, url: r.url }));
   }
 
+  /**
+   * Where on a managed pier catches happen (直江津: metres + 内側/外側, 東港: post numbers).
+   * Uses the target species when it has enough positioned catches, otherwise all species.
+   */
+  function pierMap(spot, sp, days = 14) {
+    const rs = reportsFor((r) => r.type === 'official' && r.spots.includes(spot.id), days);
+    const all = rs.flatMap((r) => r.catches.filter((c) => c.pos && !c.mention));
+    if (all.length < 5) return null;
+    const mine = all.filter((c) => c.sp === sp.id);
+    const use = mine.length >= 3 ? mine : all;
+    const kind = use.some((c) => c.pos.m != null) ? 'm' : 'no';
+    const bins = new Map();
+    const add = (key, label, order, side, w) => {
+      const b = bins.get(key) || { label, order, in: 0, out: 0, total: 0 };
+      if (side === '内側') b.in += w; else if (side === '外側') b.out += w;
+      b.total += w; bins.set(key, b);
+    };
+    for (const c of use) {
+      const w = c.count || 1;
+      if (c.pos.tip) add('tip', '先端', 999, c.pos.side, w);
+      else if (kind === 'm' && c.pos.m != null) { const k = Math.floor(c.pos.m / 100); add('m' + k, k * 100 + 'm〜', k, c.pos.side, w); }
+      else if (kind === 'no' && c.pos.no) c.pos.no.forEach((n) => { const k = Math.floor((n - 1) / 10); add('n' + k, `${k * 10 + 1}〜${k * 10 + 10}番`, k, null, w / c.pos.no.length); });
+    }
+    const list = [...bins.values()].sort((a, b) => a.order - b.order);
+    const top = list.slice().sort((a, b) => b.total - a.total)[0];
+    return { kind, bins: list, species: mine.length >= 3 ? sp.name : null, n: use.length, top };
+  }
+
+  /** Latest and average visitor counts at a managed fishing area (crowding hint). */
+  function visitors(spot, days = 14) {
+    const rs = reportsFor((r) => r.visitors != null && r.spots.includes(spot.id), days);
+    if (!rs.length) return null;
+    const avg = Math.round(rs.reduce((a, r) => a + r.visitors, 0) / rs.length);
+    return { latest: rs[0].visitors, date: rs[0].date, avg, max: Math.max(...rs.map((r) => r.visitors)) };
+  }
+
   function list({ limit = 40 } = {}) {
     if (!intel) return [];
     return intel.reports.filter((r) => r.catches.some((c) => !c.mention)).slice(0, limit);
   }
 
   FH.feed = {
-    load, evidence, radar, recent, insight, list, observed, notices,
+    load, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],
