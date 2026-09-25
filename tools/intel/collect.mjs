@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { extractCatches, extractTime, extractColorNotes, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+import { extractCatches, extractTime, extractColorNotes, extractNotices, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
@@ -27,7 +27,7 @@ const AREA_WORDS = [
 ];
 
 const BOT_RE = /記事の要約|をお届け|お伝えします|振り返|に関する記事|明日の朝まずめ|明朝の|釣り情報|最新釣果|最適な時間帯|#PR|プレゼント|キャンペーン/;
-const BOAT_RE = /沖で|沖では|沖の|船釣り|遊漁船|乗合|ジギング船|タイラバ船/;
+const BOAT_RE = /沖で|沖では|沖の|[^\s]沖 |船釣り|遊漁船|乗合|ジギング船|タイラバ船|丸さん|ティップラン|ボートで/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function get(url, accept) {
   const ctl = new AbortController();
@@ -56,26 +56,85 @@ function areaOf(text, fallback) {
   return hit ? hit[0] : fallback || null;
 }
 
+const INLAND = new Set(['北信', '中信', '東信', '南信']);
+const SEA_ONLY = new Set(ctx.FH.SPECIES.filter((s) => s.habitat.every((h) => h === 'sea')).map((s) => s.id));
+
 function toReport(src, it, extra = {}) {
   const full = `${it.title}\n${it.text}`;
-  const catches = extractCatches(full);
+  const catches = extra.catches || extractCatches(full);
   const spots = [...new Set([...(src.spots || []), ...matchSpots(full, SPOTS)])];
+  let area = areaOf(full, null) || (spots[0] && SPOTS.find((s) => s.id === spots[0]).area) || src.area || null;
+  // An inland shop reporting a sea trip without naming the place: don't pin it to the shop's area.
+  if (!areaOf(full, null) && !spots.length && INLAND.has(area) && catches.some((c) => SEA_ONLY.has(c.sp))) area = null;
+  const { catches: _c, ...rest } = extra;
+  // Shops sometimes report boat trips: keep them, but out of the shore statistics.
+  const type = src.type !== 'boat' && BOAT_RE.test(full) ? 'boat' : src.type;
   return {
     id: Buffer.from(it.url || it.title).toString('base64url').slice(-24),
-    src: src.id, srcName: src.name, type: src.type,
+    src: src.id, srcName: src.name, type,
     title: snippet(it.title, 60), url: it.url, date: it.date,
-    area: areaOf(full, src.area || (spots[0] && SPOTS.find((s) => s.id === spots[0]).area)),
-    spots, text: snippet(it.text, 160),
+    area, spots, text: snippet(it.text, 160),
     catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text),
-    ...extra
+    notices: src.type === 'coop' || src.type === 'official' ? extractNotices(it.title, it.text) : [],
+    ...rest
   };
 }
+// Keep reports that carry information and are inside Niigata / Nagano.
+const useful = (r) => (r.catches.length || r.notices.length || r.obs) && (r.area || r.spots.length);
 
 async function collectRss(src) {
   const r = await get(src.url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const items = parseFeed(await r.text());
-  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE).map((it) => toReport(src, it));
+  const tf = src.titleFilter ? new RegExp(src.titleFilter) : null;
+  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful);
+}
+
+/* ───────── HTML parsers for sources without feeds ───────── */
+const PARSERS = {
+  // 上州屋: one <div class="choka__body"> per report with "YYYY年MM月DD日の釣果", 釣り場 and comment.
+  johshuya(html, src) {
+    return html.split('<div class="choka__body">').slice(1, 11).map((b, i) => {
+      const t = normalize(stripHtml(b)).replace(/\n\s*\n+/g, '\n');
+      const m = t.match(/(20\d{2})年(\d{1,2})月(\d{1,2})日の釣果/);
+      if (!m) return null;
+      const place = (t.match(/釣り場\s*\n?\s*([^\n]{1,30})/) || [])[1] || '';
+      const body = t.slice(t.indexOf('釣り人')).replace(/^釣り人\s*\n?[^\n]*\n/, '');
+      const pl = place.trim() && !/^釣り人/.test(place.trim()) ? place.trim() + ' の釣果' : '店舗の釣果情報';
+      return { title: pl, url: src.url + '#p' + String(i + 1).padStart(2, '0'), date: Date.UTC(+m[1], +m[2] - 1, +m[3], 3), text: place + '\n' + body };
+    }).filter(Boolean);
+  },
+  // 野尻湖マリーナ: daily blocks "MM月DD日（曜）天候…水温 24℃…スモールマウス：30cm～46cm ？匹～6匹 コメント…"
+  nojiriko(html, src) {
+    const t = normalize(stripHtml(html)).replace(/\s+/g, ' ');
+    const year = new Date(NOW + 9 * 3600e3).getUTCFullYear();
+    const parts = t.split(/(?=(\d{2})月(\d{2})日\s*\([月火水木金土日]\))/).filter((x) => /^\d{2}月\d{2}日/.test(x));
+    return parts.slice(0, 10).map((p) => {
+      const d = p.match(/^(\d{2})月(\d{2})日/);
+      let date = Date.UTC(year, +d[1] - 1, +d[2], 3);
+      if (date > NOW + DAY) date = Date.UTC(year - 1, +d[1] - 1, +d[2], 3);
+      const wt = p.match(/水温\s*(\d{1,2}(?:\.\d)?)\s*(?:℃|°C|度)/);
+      const clarity = (p.match(/水質\s*(\S+?)\s*(?=平均釣果|コメント)/) || [])[1] || null;
+      const sm = p.match(/スモールマウス:\s*(\d{1,2})cm~(\d{1,2})cm\s*(\S*?)匹~(\d{1,2})匹/);
+      const lg = p.match(/ラージマウス:\s*(\d{1,2})cm~(\d{1,2})cm\s*(\S*?)匹~(\d{1,2})匹/);
+      const comment = (p.split('コメント')[1] || '').trim();
+      const catches = [];
+      const mk = (m, alias) => catches.push({ sp: 'bass', name: 'スモールマウスバス', alias, count: +m[4] || null, min: +m[1], max: +m[2], method: (comment.match(/ライトリグ|ダウンショット|ネコリグ|ノーシンカー|シャッド|ミノー|ペンシル/) || [null])[0] && (/シャッド/.test(comment) && !/ライトリグ/.test(comment) ? 'シャッド' : 'ライトリグ'), mention: false });
+      if (sm) mk(sm, 'スモールマウス');
+      if (lg) mk(lg, 'ラージマウス');
+      return {
+        title: `${d[1]}/${d[2]} 野尻湖 バス釣果`, url: src.url, date, text: comment,
+        extra: { catches, obs: wt ? { waterTemp: +wt[1], clarity } : null }
+      };
+    });
+  }
+};
+
+async function collectHtml(src) {
+  const r = await get(src.url, 'text/html');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const items = PARSERS[src.parser](await r.text(), src);
+  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE).map((it) => toReport(src, it, it.extra || {})).filter(useful);
 }
 
 async function collectBsky(src) {
@@ -109,7 +168,7 @@ async function collectBsky(src) {
 }
 
 function aggregate(reports, since) {
-  const recent = reports.filter((r) => r.date && r.date >= since);
+  const recent = reports.filter((r) => r.date && r.date >= since && r.type !== 'boat');
   const bucket = () => ({ reports: 0, fish: 0, maxSize: null, last: 0, methods: {}, times: {} });
   const add = (map, r, c) => {
     const k = c.sp || c.name;
@@ -136,13 +195,23 @@ function aggregate(reports, since) {
   };
 }
 
+/** Latest measured conditions per spot (e.g. lake water temperature from a marina log). */
+function observations(list) {
+  const out = {};
+  for (const r of list) {
+    if (!r.obs || !r.date) continue;
+    for (const sid of r.spots) if (!out[sid] || out[sid].date < r.date) out[sid] = Object.assign({ date: r.date, src: r.srcName, url: r.url }, r.obs);
+  }
+  return out;
+}
+
 async function main() {
   const reports = [];
   const health = [];
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
-      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'bsky' ? await collectBsky(src) : [];
+      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : [];
       reports.push(...r);
       health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
     } catch (e) {
@@ -157,7 +226,8 @@ async function main() {
     schema: 'fishhunter.intel/1', generated_at: new Date().toISOString(),
     policy: cfg.policy, sources: health, linkOnly: cfg.linkOnly,
     count: list.length, reports: list,
-    stats: { d7: aggregate(list, NOW - 7 * DAY), d30: aggregate(list, NOW - 30 * DAY) }
+    stats: { d7: aggregate(list, NOW - 7 * DAY), d30: aggregate(list, NOW - 30 * DAY) },
+    observations: observations(list)
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(out));

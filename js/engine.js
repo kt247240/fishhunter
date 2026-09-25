@@ -40,7 +40,7 @@
     if (data && typeof data === 'object') {
       let m = condCache.get(data);
       if (!m) { m = new Map(); condCache.set(data, m); }
-      const k = spot.id + '@' + t;
+      const k = spot.id + '@' + t + (FH.feed && FH.feed.loaded && FH.feed.loaded() ? '+i' : '');
       if (!m.has(k)) m.set(k, buildConditions(spot, t, data));
       return m.get(k);
     }
@@ -78,6 +78,12 @@
         if (spot.water === 'river' && (c.month === 4 || c.month === 5) && (spot.elev || 0) >= 400) est -= 2; // snowmelt
         c.waterTemp = clamp(est, 1, 30); c.waterTempEst = true;
       } else { c.waterTemp = null; c.waterTempEst = true; }
+    }
+
+    // Measured water temperature (e.g. marina log) beats the air-temperature estimate while fresh.
+    const obs = spot.water !== 'sea' && FH.feed && FH.feed.observed ? FH.feed.observed(spot.id) : null;
+    if (obs && obs.waterTemp != null && Math.abs(t - obs.date) <= 3 * 86400e3) {
+      c.waterTemp = obs.waterTemp; c.waterTempEst = false; c.waterTempObs = obs;
     }
 
     // Onshore component (+1 = straight onshore, -1 = offshore / tailwind for casting).
@@ -209,7 +215,7 @@
 
     const ts = trap(c.waterTemp, sp.temp);
     f.temp = ts == null ? 0.6 : ts;
-    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）`;
+    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempObs ? '実測' : c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）`;
 
     if (spot.water === 'sea') {
       const ws = waveScore(sp, c.wave);

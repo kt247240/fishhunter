@@ -39,7 +39,7 @@
     if (!intel) return null;
     const k = spot.id + ':' + sp.id;
     if (evCache.has(k)) return evCache.get(k);
-    const hits = reportsFor((r) => r.spots.includes(spot.id) && r.catches.some((c) => c.sp === sp.id && !c.mention), 7);
+    const hits = reportsFor((r) => r.type !== 'boat' && r.spots.includes(spot.id) && r.catches.some((c) => c.sp === sp.id && !c.mention), 7);
     let res = null;
     if (hits.length) {
       const latest = Math.max(...hits.map((r) => r.date));
@@ -50,6 +50,12 @@
     return res;
   }
 
+  /** Does this catch belong to the same kind of water as the spot (sea vs lake/river)? */
+  function fits(spot, c) {
+    if (c.sp) { const sp = FH.speciesById[c.sp]; return !!sp && sp.habitat.includes(spot.water); }
+    return spot.water === 'sea'; // unnamed extras (シイラ, メジナ, …) are sea fish
+  }
+
   /** Species tally for a spot (falls back to its area). */
   function radar(spot, days = 7) {
     if (!intel) return null;
@@ -58,21 +64,22 @@
     if (!st) return null;
     const bySpot = st.spots[spot.id];
     if (bySpot && bySpot.length) return { scope: 'spot', label: spot.name, list: bySpot };
-    const byArea = st.areas[spot.area];
-    if (byArea && byArea.length) return { scope: 'area', label: spot.area + 'エリア', list: byArea };
+    const byArea = (st.areas[spot.area] || []).filter((x) => fits(spot, x));
+    if (byArea.length) return { scope: 'area', label: spot.area + 'エリア', list: byArea };
     return { scope: 'none', label: spot.name, list: [] };
   }
 
   function recent(spot, n = 6) {
-    const own = reportsFor((r) => r.spots.includes(spot.id) && r.catches.some((c) => !c.mention), 14);
-    const list = own.length ? own : reportsFor((r) => r.area === spot.area && r.catches.some((c) => !c.mention), 14);
+    const shore = (r) => r.type !== 'boat' && r.catches.some((c) => !c.mention);
+    const own = reportsFor((r) => r.spots.includes(spot.id) && shore(r), 14);
+    const list = own.length ? own : reportsFor((r) => r.area === spot.area && shore(r) && r.catches.some((c) => !c.mention && fits(spot, c)), 14);
     return list.slice(0, n);
   }
 
   /** Recent colour notes + method tally for a species around this spot's area. */
   function insight(spot, sp) {
     if (!intel) return null;
-    const rs = reportsFor((r) => (r.spots.includes(spot.id) || r.area === spot.area) && r.catches.some((c) => c.sp === sp.id), 14);
+    const rs = reportsFor((r) => r.type !== 'boat' && (r.spots.includes(spot.id) || r.area === spot.area) && r.catches.some((c) => c.sp === sp.id), 14);
     if (!rs.length) return null;
     const methods = {};
     rs.forEach((r) => r.catches.filter((c) => c.sp === sp.id && c.method).forEach((c) => { methods[c.method] = (methods[c.method] || 0) + 1; }));
@@ -85,13 +92,25 @@
     };
   }
 
+  /** Fresh measured conditions for a spot (e.g. lake water temperature), or null. */
+  function observed(spotId, maxDays = 3) {
+    const o = intel && intel.observations && intel.observations[spotId];
+    return o && Date.now() - o.date <= maxDays * DAY ? o : null;
+  }
+
+  /** Recent notices (openings, closures, stocking…) for a spot or its area. */
+  function notices(spot, days = 30, n = 3) {
+    const rs = reportsFor((r) => r.notices && r.notices.length && (r.spots.includes(spot.id) || (!r.spots.length && r.area === spot.area)), days);
+    return rs.slice(0, n).map((r) => ({ text: r.notices[0], src: r.srcName, date: r.date, url: r.url }));
+  }
+
   function list({ limit = 40 } = {}) {
     if (!intel) return [];
     return intel.reports.filter((r) => r.catches.some((c) => !c.mention)).slice(0, limit);
   }
 
   FH.feed = {
-    load, evidence, radar, recent, insight, list,
+    load, evidence, radar, recent, insight, list, observed, notices,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],

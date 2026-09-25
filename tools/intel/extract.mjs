@@ -31,7 +31,7 @@ const METHODS = [
   ['遠投サビキ', /遠投サビキ/], ['サビキ', /サビキ/], ['遠投カゴ', /遠投カゴ|カゴ釣り|カゴ/], ['フカセ', /フカセ/], ['ダンゴ', /ダンゴ/],
   ['泳がせ', /泳がせ|のませ/], ['ヘチ・落とし込み', /ヘチ|落とし込み|前打ち/], ['投げ釣り', /投げ釣り|ちょい投げ/],
   ['アジング', /アジング|ジグ単/], ['メバリング', /メバリング/], ['ワーム', /ワーム/], ['ミノー', /ミノー/], ['トップ', /ペンシル|ポッパー|トップ/],
-  ['バイブレーション', /バイブ/], ['ギャング針', /ギャング/], ['ウキ釣り', /ウキ釣り|電気ウキ/], ['友釣り', /友釣り/], ['ドーム船', /ドーム船/]
+  ['バイブレーション', /バイブ/], ['ライトリグ', /ライトリグ|ダウンショット|ネコリグ|ノーシンカー/], ['シャッド', /シャッド/], ['フライ', /フライ(?!ト)/], ['テンカラ', /テンカラ/], ['ギャング針', /ギャング/], ['ウキ釣り', /ウキ釣り|電気ウキ/], ['友釣り', /友釣り/], ['ドーム船', /ドーム船/]
 ];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -145,4 +145,17 @@ export function matchSpots(text, spots) {
 export function snippet(text, n = 140) {
   const t = normalize(text).replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1) + '…' : t;
+}
+
+/** Notices from managers / co-ops: openings, closures, stocking, access. */
+export function extractNotices(title, text) {
+  const t = normalize(title + '。' + text).replace(/\n+/g, '。');
+  const KEY = /解禁|禁漁|放流|遊漁券|立入禁止|立ち入り禁止|通行止|閉鎖|休業|休館|営業(開始|終了|時間)|中止|延期|結氷|氷上|ドーム船|釣り場(開放|閉鎖)|工事/;
+  const out = [];
+  for (const s of t.split(/。|!|！/)) {
+    const x = s.trim();
+    if (x.length >= 6 && x.length <= 90 && KEY.test(x) && !out.includes(x)) out.push(x);
+    if (out.length >= 3) break;
+  }
+  return out;
 }

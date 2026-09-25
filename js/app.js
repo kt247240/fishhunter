@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v20.0.0 CATCH RADAR';
+  const VERSION = 'v20.1.0 CATCH RADAR';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -255,7 +255,9 @@
     $('#radarStamp').textContent = FH.feed.generatedAt() ? '収集 ' + ago(Date.parse(FH.feed.generatedAt())) : '';
     $('#radarScope').textContent = rd && rd.scope !== 'none' ? `${rd.label} ・ 直近7日` : '';
     if (!rd || !rd.list.length) {
-      $('#radar').innerHTML = `<p class="muted small">この釣り場・エリアの直近の公開釣果はまだありません。SNSの最新投稿も確認してみてください。</p>`;
+      const nts0 = FH.feed.notices(sp);
+      $('#radar').innerHTML = (nts0.length ? `<div class="rd-notices"><h4 class="rd-h">📢 お知らせ（漁協・管理者）</h4>${nts0.map((n) => `<a class="rd-notice" href="${esc(n.url)}" target="_blank" rel="noopener nofollow"><b>${md(n.date)}</b> ${esc(n.text)} <span class="muted small">— ${esc(n.src)}</span></a>`).join('')}</div>` : '') +
+        `<p class="muted small">この釣り場・エリアの直近の公開釣果はまだありません。SNSの最新投稿も確認してみてください。</p>`;
       return;
     }
     const max = Math.max(...rd.list.map((x) => x.fish || x.reports));
@@ -276,7 +278,9 @@
         <div class="rd-rep-h"><span class="chip">${esc({ official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協' }[r.type] || '情報')}</span><b>${esc(r.srcName)}</b><span class="muted small">${md(r.date)} ${hm(r.date)}</span></div>
         <div class="chips">${r.catches.filter((c) => !c.mention).slice(0, 5).map(catchChip).join('')}</div>
         <a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事を見る →</a></li>`).join('');
-    $('#radar').innerHTML = `<ol class="rd-list" data-stagger>${rows}</ol>${tip}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
+    const nts = FH.feed.notices(sp);
+    const ntsHtml = nts.length ? `<div class="rd-notices"><h4 class="rd-h">📢 お知らせ（漁協・管理者）</h4>${nts.map((n) => `<a class="rd-notice" href="${esc(n.url)}" target="_blank" rel="noopener nofollow"><b>${md(n.date)}</b> ${esc(n.text)} <span class="muted small">— ${esc(n.src)}</span></a>`).join('')}</div>` : '';
+    $('#radar').innerHTML = `${ntsHtml}<ol class="rd-list" data-stagger>${rows}</ol>${tip}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
       <p class="muted small">公開情報を自動で集計した目安です。釣り場全体の傾向であり、特定の場所での釣果を保証するものではありません。</p>`;
     FH.motion.stagger($('#radar'));
   }
@@ -291,7 +295,7 @@
   function renderField(sp, c) {
     $('#fieldNowAt').textContent = hm(state.now) + ' 時点';
     const tiles = [];
-    const SRC = { f: '<em class="src forecast">FORECAST</em>', m: '<em class="src model">MODEL</em>', e: '<em class="src estimate">EST</em>', c: '<em class="src calc">CALC</em>' };
+    const SRC = { o: '<em class="src observed">OBSERVED</em>', f: '<em class="src forecast">FORECAST</em>', m: '<em class="src model">MODEL</em>', e: '<em class="src estimate">EST</em>', c: '<em class="src calc">CALC</em>' };
     let ti = 0;
     const tile = (k, v, unit, s, cls, src = 'f') => tiles.push(`<div class="tile${cls ? ' ' + cls : ''}" style="--i:${ti++}"><div class="k">${k}${SRC[src] || ''}</div><div class="v">${v}<small>${unit || ''}</small></div><div class="s">${s || ''}</div></div>`);
     tile('天気', FH.weather.weatherIcon(c.code), '', FH.weather.weatherText(c.code) + (c.cloud != null ? ` ・雲${c.cloud}%` : ''));
@@ -302,7 +306,9 @@
       tile('海面水温', f1(c.waterTemp), '℃', '海洋モデル値', '', 'm');
       tile('濁り', c.murk > 0.55 ? '強' : c.murk > 0.25 ? '中' : '澄', '', '波・雨・向かい風から推定', '', 'e');
     } else {
-      tile('推定水温', f1(c.waterTemp), '℃', '直近72h気温から推定', '', 'e');
+      if (c.waterTempObs) tile('水温', f1(c.waterTemp), '℃', `${md(c.waterTempObs.date)} ${c.waterTempObs.src}`, '', 'o');
+      else tile('推定水温', f1(c.waterTemp), '℃', '直近72h気温から推定', '', 'e');
+      if (c.waterTempObs && c.waterTempObs.clarity) tile('水質', esc(c.waterTempObs.clarity.split('、')[0]), '', esc(c.waterTempObs.clarity), '', 'o');
       const r = c.flow || 0;
       tile('水量指数', f1(r, 0), 'mm', r < 3 ? '平水〜渇水' : r <= 12 ? 'ささ濁り・好水位' : r <= 30 ? '増水気味' : '増水・濁流', r > 30 ? 'alert' : r > 12 ? 'warn' : '', 'e');
     }
@@ -571,7 +577,7 @@
       el.innerHTML = '<div class="empty" style="grid-column:1/-1">公開釣果の取得待ちです（公開版では2〜3時間ごとに自動更新）。<br>診断タブで状態を確認できます。</div>';
       return;
     }
-    const TYPE = { official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協' };
+    const TYPE = { official: '公式', shop: '釣具店', sns: 'SNS', blog: 'ブログ', coop: '漁協', boat: '船（沖の情報）' };
     el.innerHTML = items.map((r) => `<article class="post">
       <div class="body"><h4>${esc(r.spots.map((id) => (FH.spotById[id] || {}).name).filter(Boolean).join('・') || r.area || '')} ${esc(r.title)}</h4>
       <div class="meta">${esc(r.srcName)}${r.author ? ' ' + esc(r.author) : ''} ・ ${md(r.date)} ${hm(r.date)}</div>
