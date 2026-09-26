@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v21.0.0 COMMUNITY';
+  const VERSION = 'v21.1.0 COMMUNITY';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -269,7 +269,7 @@
       return `<li class="rd-row${on ? ' on' : ''}${pickable ? ' pick' : ''}" ${pickable ? `data-rsp="${x.sp}"` : ''} style="--i:${i}${x.sp ? ';--c:' + FH.speciesById[x.sp].color : ''}">
         <span class="rd-name">${esc(shortName(x.name))}</span>
         <span class="rd-bar"><i style="width:${Math.max(6, ((x.fish || x.reports) / max) * 100)}%"></i></span>
-        <span class="rd-val num">${x.fish ? x.fish + '匹' : x.reports + '件'}</span>
+        <span class="rd-val num">${x.fish ? x.fish + '匹' : x.reports + '件'}${x.trend ? `<i class="trend ${x.trend}" title="先週 ${x.prev}">${{ up: '↑', down: '↓', flat: '→', new: 'NEW' }[x.trend]}</i>` : ''}</span>
         <span class="rd-sub">${x.maxSize ? '最大' + x.maxSize + 'cm' : ''}${m ? ' ・ ' + esc(m[0]) : ''}${t ? ' ・ ' + esc(t[0]) + 'に多い' : ''}</span></li>`;
     }).join('');
     const ins = FH.feed.insight(sp, fish);
@@ -370,9 +370,9 @@
     const key = state.data && state.data.fetchedAt + ':' + Math.floor(state.now / HOUR) + ':' + (mine ? JSON.stringify([P.areas, P.species, P.favorites]) : 'all');
     if (key && key === state.picksKey) return;
     state.picksKey = key;
-    // Heavy: defer so the focused spot paints first.
-    setTimeout(() => {
-      const picks = E.topPicks(state.data, state.now, 18, 8, mine ? FH.prefs.matches : null);
+    // Heavy: run in a Web Worker when available, otherwise defer on the main thread.
+    computePicks(mine).then(({ picks, weekend }) => {
+      if (key !== state.picksKey) return; // superseded by a newer request
       $('#topPicks').innerHTML = picks.length ? picks.map((p, i) => `
         <button class="pick-card tone-${tone(p.win.peak)}" style="--i:${i}" data-spot="${p.spot.id}" data-sp="${p.sp.id}" type="button">
           <span class="rank-no">#${i + 1} ・ ${esc(p.spot.pref)} ${esc(p.spot.area)}${FH.prefs.isFav(p.spot.id) ? ' ・ ★' : ''}</span>
@@ -383,12 +383,48 @@
           <span class="tags">${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
         </button>`).join('') : '<div class="empty">条件の良い候補が見つかりません（荒天・シーズンオフ）</div>';
       FH.motion.countUp($('#topPicks'));
-      renderWeekend(mine);
-    }, 30);
+      renderWeekend(mine, weekend);
+    });
   }
 
-  function renderWeekend(mine) {
-    const wk = E.weekend(state.data, state.now, { limit: 3, filter: mine ? FH.prefs.matches : null });
+  /* Off-main-thread scoring. Falls back to the main thread if workers are unavailable or fail. */
+  let worker = null, reqId = 0;
+  const pending = new Map();
+  function getWorker() {
+    if (worker !== null) return worker;
+    try {
+      worker = new Worker('js/picks-worker.js');
+      worker.onmessage = (e) => { const p = pending.get(e.data.id); if (p) { pending.delete(e.data.id); e.data.ok ? p.resolve(e.data) : p.reject(new Error(e.data.error)); } };
+      worker.onerror = () => { pending.forEach((p) => p.reject(new Error('worker'))); pending.clear(); worker = false; };
+    } catch (_) { worker = false; }
+    return worker;
+  }
+  function inflate(p) { return { spot: FH.spotById[p.spotId], sp: FH.speciesById[p.spId], win: p.win }; }
+  function computePicks(mine) {
+    const filter = mine ? FH.prefs.matches : null;
+    const local = () => new Promise((res) => setTimeout(() => res({
+      picks: E.topPicks(state.data, state.now, 18, 8, filter),
+      weekend: E.weekend(state.data, state.now, { limit: 3, filter })
+    }), 30));
+    const w = getWorker();
+    if (!w) return local();
+    const evidence = {};
+    if (FH.feed.loaded()) FH.SPOTS.forEach((s) => E.speciesFor(s).forEach((sp) => { const e = FH.feed.evidence(s, sp); if (e) evidence[s.id + ':' + sp.id] = e; }));
+    const storage = {};
+    ['fh.catchlog.v1', 'fh.prefs.v1'].forEach((k) => { try { const v = g.localStorage.getItem(k); if (v != null) storage[k] = k === 'fh.catchlog.v1' ? JSON.stringify(JSON.parse(v).map(({ photo, ...x }) => x)) : v; } catch (_) { /* ignore */ } });
+    const id = ++reqId;
+    const t0 = performance.now();
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      w.postMessage({ id, data: { wx: state.data.wx, marine: state.data.marine, fetchedAt: state.data.fetchedAt }, now: state.now, mine, evidence, observations: FH.feed.observations(), intel: FH.feed.loaded(), storage });
+    }).then((r) => {
+      FH.diag.report('worker', { label: '計算ワーカー', state: 'ok', ms: Math.round(performance.now() - t0), detail: 'おすすめ・週末を裏側で計算' });
+      return { picks: r.picks.map(inflate).filter((p) => p.spot && p.sp), weekend: r.weekend.map((d) => Object.assign({}, d, { picks: d.picks.map(inflate).filter((p) => p.spot && p.sp) })) };
+    }).catch(() => local());
+  }
+
+  function renderWeekend(mine, wk) {
+    wk = wk || E.weekend(state.data, state.now, { limit: 3, filter: mine ? FH.prefs.matches : null });
     $('#wkHint').textContent = mine ? 'あなたのエリア・魚種から土日のベスト3' : '土日のベスト3（全域）';
     $('#weekend').innerHTML = wk.map((d) => `
       <article class="card wk-day">

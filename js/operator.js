@@ -83,6 +83,50 @@
     $('#weekendDrafts').innerHTML = out.join('') || '<p class="muted">週末が予報の範囲に入ると表示されます。</p>';
   }
 
+  /** Weekly catch recap per region from the collected public reports. */
+  function recapDrafts() {
+    const st = FH.feed.stats();
+    if (!st) { $('#recapDrafts').innerHTML = '<p class="muted">釣果インテルを取得できませんでした。</p>'; return; }
+    const merge = (lists) => {
+      const m = {};
+      lists.flat().forEach((x) => {
+        const k = x.sp || x.name;
+        const b = m[k] || (m[k] = { name: x.name, sp: x.sp, fish: 0, reports: 0, maxSize: null, methods: {} });
+        b.fish += x.fish; b.reports += x.reports; if (x.maxSize) b.maxSize = Math.max(b.maxSize || 0, x.maxSize);
+        Object.entries(x.methods || {}).forEach(([k2, n]) => { b.methods[k2] = (b.methods[k2] || 0) + n; });
+      });
+      return Object.values(m).sort((a, b) => b.fish - a.fish || b.reports - a.reports);
+    };
+    const out = [];
+    for (const G of GROUPS) {
+      const now7 = merge(G.areas.map((a) => st.d7.areas[a] || []));
+      if (!now7.length) continue;
+      const prev = merge(G.areas.map((a) => (st.prev7 && st.prev7.areas[a]) || []));
+      const line = (x) => {
+        const p = prev.find((y) => (y.sp || y.name) === (x.sp || x.name));
+        const tr = !p ? '' : x.fish >= p.fish * 1.3 ? '↑' : x.fish <= p.fish * 0.7 ? '↓' : '';
+        const m = Object.entries(x.methods).sort((a, b) => b[1] - a[1])[0];
+        return `${short(x.name)} ${x.fish ? x.fish + '匹' : x.reports + '件'}${tr}${x.maxSize ? `（最大${x.maxSize}cm${m ? '・' + m[0] : ''}）` : m ? `（${m[0]}）` : ''}`;
+      };
+      const top = now7.slice(0, 4);
+      // Pier insight for managed areas in this region
+      const piers = FH.SPOTS.filter((sp) => G.areas.includes(sp.area)).map((spot) => {
+        const lead = top.find((x) => x.sp && spot.species.includes(x.sp));
+        const pm = lead && FH.feed.pierMap(spot, FH.speciesById[lead.sp], 7);
+        if (!pm || !pm.top || !pm.species) return null;
+        const where = pm.kind === 'm' && pm.top.label !== '先端' ? `${pm.top.out >= pm.top.in ? '外側' : '内側'}${pm.top.label.replace('〜', '付近')}` : pm.top.label + '付近';
+        return `${short(spot.name)}の${short(pm.species)}は${where}に集中`;
+      }).filter(Boolean).slice(0, 1);
+      const x = [`【今週の釣果まとめ｜${G.label}】`, ...top.slice(0, 3).map(line), ...piers, '※公開釣果情報の集計', `#FishHunter ${G.tags.split(' ')[0]}`, APP].join('\n');
+      const ig = [`【今週の釣果まとめ｜${G.label}】`, '直近7日間に公開された釣果情報を集計しました。', '', ...top.map((t) => '・' + line(t)), ...(piers.length ? ['', '📍 ' + piers[0]] : []), '',
+        '↑は先週より増加、↓は減少。管理釣り場・釣具店・漁協などの公開情報を集計した傾向で、釣果を保証するものではありません。', '', `#FishHunter #時合を読め ${G.tags} #今週の釣果`].join('\n');
+      out.push(draft('recap-x-' + G.id, `X ｜ ${G.label}`, x));
+      out.push(draft('recap-ig-' + G.id, `Instagram ｜ ${G.label}`, ig, { limit: 2200 }));
+    }
+    $('#recapDrafts').innerHTML = out.join('') || '<p class="muted">直近7日の公開釣果がありません。</p>';
+    updateCounts();
+  }
+
   function safetyDrafts(data, now) {
     const list = E.dangerScan(data, now, 72).filter((x) => x.spot.water === 'sea');
     if (!list.length) { $('#safetyDrafts').innerHTML = '<p class="muted">今後72時間、海の釣り場で危険判定はありません。</p>'; return; }
@@ -156,6 +200,7 @@
   });
   $('#btnReload').addEventListener('click', () => load(true));
   load(false);
+  FH.feed.load().then(recapDrafts);
 
   FH.operator = { xLength };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -554,3 +554,8 @@ main { max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 .share-opt { display: grid !important; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--line-2); color: var(--text) !important; font-size: 13px !important; }
 .share-opt input { width: 18px !important; height: 18px; margin-top: 2px; }
 .share-opt small { color: var(--muted); }
+.trend { font-style: normal; font-size: 11px; font-weight: 800; margin-left: 4px; padding: 1px 5px; border-radius: 6px; }
+.trend.up { color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); }
+.trend.down { color: var(--meh); background: color-mix(in srgb, var(--meh) 15%, transparent); }
+.trend.flat { color: var(--muted); }
+.trend.new { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); font-size: 9px; }

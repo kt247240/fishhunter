@@ -22,7 +22,8 @@ for (const p of jsFiles) {
 // 3. Every module in js/ is loaded by app.html and cached by the service worker.
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 for (const p of jsFiles.filter((f) => f.startsWith('js/'))) {
-  if (!html.includes(`src="${p}"`) && !lp.includes(`src="${p}"`)) fail('Module not loaded by app.html / index.html / ops.html:', p);
+  const viaWorker = jsFiles.some((f) => fs.readFileSync(path.join(root, f), 'utf8').includes(`new Worker('${p}')`));
+  if (!html.includes(`src="${p}"`) && !lp.includes(`src="${p}"`) && !viaWorker) fail('Module not loaded by app.html / index.html / ops.html / a Worker:', p);
   if (!sw.includes(`'${p}'`)) fail('Module missing from sw.js SHELL:', p);
 }
 

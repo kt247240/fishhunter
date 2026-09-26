@@ -35,11 +35,12 @@
     let ugc = [];
     if (FH.community && FH.community.enabled()) ugc = FH.community.asReports(await FH.community.recent());
     intel.reports = [...intel.reports.filter((r) => r.type !== 'ugc'), ...ugc].sort((a, b) => (b.date || 0) - (a.date || 0));
-    intel.stats = { d7: aggregate(intel.reports, Date.now() - 7 * DAY), d30: aggregate(intel.reports, Date.now() - 30 * DAY) };
+    const now = Date.now();
+    intel.stats = { d7: aggregate(intel.reports, now - 7 * DAY), prev7: aggregate(intel.reports, now - 14 * DAY, now - 7 * DAY), d30: aggregate(intel.reports, now - 30 * DAY) };
     evCache.clear();
   }
 
-  function aggregate(reports, since) {
+  function aggregate(reports, since, until = Infinity) {
     const bucket = () => ({ reports: 0, fish: 0, maxSize: null, last: 0, methods: {}, times: {} });
     const add = (map, r, c) => {
       const k = c.sp || c.name;
@@ -52,7 +53,7 @@
     };
     const spots = {}, areas = {}, all = {};
     for (const r of reports) {
-      if (!r.date || r.date < since || r.type === 'boat') continue;
+      if (!r.date || r.date < since || r.date >= until || r.type === 'boat') continue;
       for (const c of r.catches) {
         r.spots.forEach((sid) => add(spots[sid] || (spots[sid] = {}), r, c));
         if (r.area) add(areas[r.area] || (areas[r.area] = {}), r, c);
@@ -98,10 +99,18 @@
     const key = days <= 7 ? 'd7' : 'd30';
     const st = intel.stats && intel.stats[key];
     if (!st) return null;
+    const prev = intel.stats.prev7 || { spots: {}, areas: {} };
+    const withTrend = (list, before) => list.map((x) => {
+      const p = (before || []).find((y) => (y.sp || y.name) === (x.sp || x.name));
+      const a = x.fish || x.reports, b = p ? p.fish || p.reports : 0;
+      const trend = !b ? (a >= 3 ? 'new' : null) : a >= b * 1.3 ? 'up' : a <= b * 0.7 ? 'down' : 'flat';
+      return Object.assign({}, x, { trend, prev: b });
+    });
     const bySpot = st.spots[spot.id];
+    if (days <= 7 && bySpot && bySpot.length) return { scope: 'spot', label: spot.name, list: withTrend(bySpot, prev.spots[spot.id]) };
     if (bySpot && bySpot.length) return { scope: 'spot', label: spot.name, list: bySpot };
     const byArea = (st.areas[spot.area] || []).filter((x) => fits(spot, x));
-    if (byArea.length) return { scope: 'area', label: spot.area + 'エリア', list: byArea };
+    if (byArea.length) return { scope: 'area', label: spot.area + 'エリア', list: days <= 7 ? withTrend(byArea, prev.areas[spot.area]) : byArea };
     return { scope: 'none', label: spot.name, list: [] };
   }
 
@@ -182,6 +191,12 @@
   }
 
   FH.feed = {
+    stats: () => (intel && intel.stats) || null,
+    observations: () => {
+      const o = {};
+      if (intel && intel.observations) for (const id of Object.keys(intel.observations)) { const v = observed(id); if (v) o[id] = v; }
+      return o;
+    },
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
