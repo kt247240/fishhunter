@@ -479,7 +479,13 @@ async function main() {
       reports.push(...r);
       health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
     } catch (e) {
-      health.push({ id: src.id, name: src.name, type: src.type, ok: false, error: String(e.message || e), ms: Date.now() - t0 });
+      // A source that refused or failed this time keeps its last published reports (≤ 14 days) so the
+      // app doesn't lose them; no extra requests are made to get around a refusal.
+      const msg = String(e.message || e);
+      const prev = await previousIntel();
+      const carried = (prev.reports || []).filter((r) => r.src === src.id && r.date && NOW - r.date <= 14 * DAY);
+      reports.push(...carried);
+      health.push({ id: src.id, name: src.name, type: src.type, ok: false, error: msg, blocked: /HTTP 40[13]/.test(msg), carried: carried.length, ms: Date.now() - t0 });
     }
     await sleep(1500);
   }

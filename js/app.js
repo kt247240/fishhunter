@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v32.0.0 SOURCES';
+  const VERSION = 'v32.1.0 CARRY';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -806,7 +806,7 @@
       { label: 'オフライン対応', state: env.sw ? 'ok' : 'warn', detail: env.sw ? 'Service Worker 有効' : '未登録（初回訪問 or 非対応環境）' },
       { label: 'ローカル保存', state: env.storage ? 'ok' : 'error', detail: env.storage ? '釣果ログ・キャッシュ保存可' : '保存不可（プライベートモード？）' }
     ];
-    const srcRows = FH.feed.sources().map((x) => ({ label: '釣果ソース：' + x.name, state: x.ok ? (x.count ? 'ok' : 'warn') : 'error', detail: x.ok ? `${x.count}件（直近30日）` : '取得失敗: ' + (x.error || ''), ms: x.ms }));
+    const srcRows = FH.feed.sources().map((x) => ({ label: '釣果ソース：' + x.name, state: x.ok ? (x.count ? 'ok' : 'warn') : 'error', detail: x.ok ? `${x.count}件（直近30日）` : (x.blocked ? '配信元がクラウドからの取得を拒否' : '取得失敗: ' + (x.error || '')) + (x.carried ? `・前回の${x.carried}件を表示中` : ''), ms: x.ms }));
     const linkRows = FH.feed.linkOnly().map((x) => ({ label: 'リンク案内のみ：' + x.name, state: 'warn', detail: x.reason }));
     $('#systemDiag').innerHTML = [...svcs, ...envRows, ...srcRows, ...linkRows].map((s) =>
       `<div class="svc"><span class="st ${s.state}"></span><div>${esc(s.label)}<small>${esc(s.detail || '')}${s.at ? ' ・ ' + ago(s.at) : ''}</small></div><span class="ms">${s.ms != null ? s.ms + 'ms' : ''}</span></div>`).join('') +
