@@ -159,6 +159,16 @@ test('insight: analogs prefer same season + similar sea; season flow; crowd', ()
   assert.equal(ss[3].hit, 1); assert.equal(ss[2].hit, 1); assert.equal(ss[2].days, 2);
   assert.equal(I.crowd(book, 'x', 6, Date.parse('2026-09-24T12:00:00+09:00')).sat, 120);
   assert.equal(I.zoneLabel('m6:i'), '600〜699m 内側');
+  // migration: B leads A by 3 days on a synthetic run; arrivals after a ≥14-day blank
+  const mk = [];
+  for (let i = 0; i < 80; i++) {
+    const d = new Date(Date.UTC(2026, 6, 1) + i * 864e5).toISOString().slice(0, 10);
+    const run = (k) => (Math.sin((i - k) / 6) > 0.3 ? { aori: [5, 12, null] } : {});
+    mk.push({ s: 'A', d, dow: 1, c: {}, f: i >= 20 ? run(3) : {} }, { s: 'B', d, dow: 1, c: {}, f: i >= 20 ? run(0) : {} });
+  }
+  const mg = I.migration({ days: mk }, 'aori', ['A', 'B'], Date.UTC(2026, 8, 18));
+  assert.equal(mg.lead.from, 'B'); assert.equal(mg.lead.days, 3);
+  assert.ok(mg.spots[0].arrivals.length >= 1);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

@@ -78,6 +78,62 @@
     return { weekday: med(pick((e) => e.dow >= 1 && e.dow <= 5)), sat: med(pick((e) => e.dow === 6)), sun: med(pick((e) => e.dow === 0)), n: days.length };
   }
 
+  /**
+   * 回遊レーダー: the same species at several spots, side by side.
+   * → { spots: [{ id, weeks: season(), arrivals: [date…], last }], lead: { from, to, days, r, n } | null }
+   * Arrival = first catch after ≥ gapDays of report days without it. A lead is only reported when the
+   * 7-day smoothed daily series correlate strongly (r ≥ 0.6 over ≥ 45 shared days) at a non-zero lag.
+   */
+  function migration(book, sp, spotIds, now = Date.now(), { weeks = 8, gapDays = 14 } = {}) {
+    const all = (book && book.days) || [];
+    const res = { spots: [], lead: null };
+    const series = {};
+    const dates = all.map((e) => Date.parse(e.d + 'T12:00:00+09:00'));
+    if (!dates.length) return res;
+    const t0 = Math.min(...dates), N = Math.round((Math.max(...dates) - t0) / DAY) + 1;
+    for (const id of spotIds) {
+      const days = all.filter((e) => e.s === id).sort((a, b) => (a.d < b.d ? -1 : 1));
+      if (!days.length) continue;
+      const arrivals = [];
+      const first = Date.parse(days[0].d + 'T12:00:00+09:00');
+      let lastHit = null;
+      for (const e of days) {
+        const t = Date.parse(e.d + 'T12:00:00+09:00');
+        if (!e.f[sp]) continue;
+        // A first-ever catch only counts when the log already covered gapDays before it.
+        if (lastHit == null ? t - first >= gapDays * DAY : t - lastHit >= gapDays * DAY) arrivals.push(e.d);
+        lastHit = t;
+      }
+      const raw = new Array(N).fill(null);
+      days.forEach((e) => { raw[Math.round((Date.parse(e.d + 'T12:00:00+09:00') - t0) / DAY)] = e.f[sp] ? Math.log1p(e.f[sp][0]) : 0; });
+      series[id] = raw.map((_, i) => { let s = 0, n = 0; for (let k = i - 3; k <= i + 3; k++) if (raw[k] != null) { s += raw[k]; n++; } return n >= 3 ? s / n : null; });
+      res.spots.push({ id, weeks: season(book, id, sp, weeks, now), arrivals, last: lastHit });
+    }
+    const corr = (a, b) => {
+      const x = [], y = [];
+      a.forEach((v, i) => { if (v != null && b[i] != null) { x.push(v); y.push(b[i]); } });
+      const n = x.length; if (n < 45) return null;
+      const mx = x.reduce((p, q) => p + q, 0) / n, my = y.reduce((p, q) => p + q, 0) / n;
+      let sxy = 0, sxx = 0, syy = 0;
+      for (let i = 0; i < n; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += sq(x[i] - mx); syy += sq(y[i] - my); }
+      return sxx && syy ? { r: sxy / Math.sqrt(sxx * syy), n } : null;
+    };
+    if (res.spots.length >= 2) {
+      const [A, B] = res.spots.map((x) => series[x.id]);
+      let best = null;
+      for (let L = -10; L <= 10; L++) {
+        const c = corr(A, B.map((_, i) => (B[i + L] === undefined ? null : B[i + L])));
+        if (c && (!best || c.r > best.r)) best = Object.assign({ L }, c);
+      }
+      // A[i] ~ B[i+L]: L < 0 → B moves first by |L| days.
+      if (best && best.r >= 0.6 && Math.abs(best.L) >= 2) {
+        const [a, b] = res.spots.map((x) => x.id);
+        res.lead = best.L < 0 ? { from: b, to: a, days: -best.L, r: best.r, n: best.n } : { from: a, to: b, days: best.L, r: best.r, n: best.n };
+      }
+    }
+    return res;
+  }
+
   const r1 = (x) => (x == null || !isFinite(x) ? null : Math.round(x * 10) / 10);
   /** Daytime (05–17 JST) summary of the engine's conditions for one spot and day, or null. */
   function dayConditions(spot, day, data) {
@@ -104,5 +160,5 @@
     return z[0] === 'm' ? `${k * 100}〜${k * 100 + 99}m${side}` : `${k * 10 + 1}〜${k * 10 + 10}番`;
   }
 
-  FH.insight = { distance, analogs, lift, season, crowd, dayConditions, zoneLabel };
+  FH.insight = { distance, analogs, lift, season, crowd, migration, dayConditions, zoneLabel };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

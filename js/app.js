@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v25.0.0 LAB';
+  const VERSION = 'v25.1.0 MIGRATION';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -262,7 +262,32 @@
         <p class="small">直近3週は<b>${flow}</b>（釣れた日 ${Math.round(rNow * 100)}% ／ それ以前 ${Math.round(rBefore * 100)}%）${grow ? ` ・ ${grow}` : ''}${lastHit < ss.length - 2 ? ' ・ ここ2週は釣果報告なし' : ''}</p></section>`;
     }
 
-    // 3) Crowding
+    // 3) Migration radar: the same fish at every logged pier, side by side
+    const piers = [...new Set(book.days.map((e) => e.s))].filter((id) => FH.spotById[id] && FH.spotById[id].water === sp.water);
+    if (piers.length >= 2) {
+      const mg = I.migration(book, fish.id, piers, state.now);
+      if (mg.spots.some((x) => x.weeks.some((w) => w.hit))) {
+        const sname = (id) => FH.spotById[id].name;
+        const arr = mg.spots.map((x) => ({ id: x.id, d: x.arrivals[x.arrivals.length - 1] })).filter((x) => x.d);
+        let arrTxt = '';
+        if (arr.length) {
+          arrTxt = arr.map((x) => `${esc(sname(x.id))} <b>${mdS(x.d)}</b>`).join(' ／ ');
+          if (arr.length >= 2) {
+            const [a, b] = arr.slice().sort((p, q) => (p.d < q.d ? -1 : 1));
+            const gap = Math.round((Date.parse(b.d) - Date.parse(a.d)) / 864e5);
+            if (gap >= 3) arrTxt += `（${esc(sname(a.id))}が${gap}日早い）`;
+          }
+        }
+        const wk = mg.spots[0].weeks.map((w) => { const d = new Date(w.w); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; });
+        html += `<section class="lab-sec"><h4 class="rd-h">🧭 回遊レーダー（${esc(name(fish.id))}） <small>釣り場ごとの週別「釣れた日の割合」</small></h4>
+          <div class="mig">${mg.spots.map((x) => `<div class="mig-row${x.id === sp.id ? ' on' : ''}"><span class="mig-l">${esc(sname(x.id))}</span>${x.weeks.map((w) => `<span class="mig-c" style="--a:${w.days ? (w.hit / w.days).toFixed(2) : 0}" title="${w.hit}/${w.days}日">${w.days ? Math.round((w.hit / w.days) * 100) : '·'}</span>`).join('')}</div>`).join('')}
+          <div class="mig-row mig-axis"><span class="mig-l"></span>${wk.map((t) => `<span>${t}</span>`).join('')}</div></div>
+          ${arrTxt ? `<p class="small">今季の釣れ始め（2週間以上の空白のあと最初の釣果）：${arrTxt}</p>` : ''}
+          ${mg.lead ? `<p class="small">📡 ${esc(sname(mg.lead.from))}の釣れ具合が約<b>${mg.lead.days}日</b>遅れて${esc(sname(mg.lead.to))}に表れる傾向（相関${mg.lead.r.toFixed(2)}・${mg.lead.n}日分・まだ1シーズンの傾向）。${esc(sname(mg.lead.from))}の今週の動きが先行サインになります。</p>` : ''}</section>`;
+      }
+    }
+
+    // 4) Crowding
     const cr = I.crowd(book, sp.id, 6, state.now);
     if (cr.n >= 5) {
       const cell = (label, v) => `<div class="lab-crowd-c"><span>${label}</span><b class="num">${v == null ? '—' : v}</b><small>${v == null ? '' : '名'}</small></div>`;
