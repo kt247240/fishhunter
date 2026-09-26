@@ -7,7 +7,7 @@ import { calibrate, probability, fitLogistic } from './intel/calibrate.mjs';
 import { check as healthCheck } from './intel/health.mjs';
 import { parseLandings, landingsBySpecies, parseKaikyo, parseKyucho } from './intel/official.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
-import { extractTally, extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
+import { shoreKind, extractTally, extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name); throw e; } };
@@ -280,7 +280,29 @@ test('boat logs: 船中Nハイ / 竿頭, and a count after a bare mention goes t
   assert.equal(extractTally('ハイシーズン到来です').count, null);
   const c = extractCatches('マダイヒット! アジも始まり延長線! ラスト1時間で20匹オーバー').filter((x) => !x.mention);
   assert.deepEqual(c.map((x) => [x.sp, x.count]), [['aji', 20]]);
+  assert.deepEqual(extractCatches('5:00~ マダイ 0.8~4.5kg 全員キャッチ ヒラメ 1.5~6.3kg').filter((x) => !x.mention).map((x) => x.sp), ['madai', 'hirame']);
+  assert.equal(extractCatches('マダイ狙いのおもり80号').filter((x) => !x.mention).length, 0);
+  assert.deepEqual(extractCatches('5:00~ マダイ 0.8~4.5kg 全員キャッチ ヒラメ 1.5~6.3kg').filter((x) => !x.mention).map((x) => x.sp), ['madai', 'hirame']);
+  assert.equal(extractCatches('マダイ狙いのおもり80号').filter((x) => !x.mention).length, 0);
   assert.deepEqual(extractCatches('アジ狙いで行きました。サバ5匹').filter((x) => !x.mention).map((x) => x.sp), ['saba']);
+});
+
+test('shore kind: surf vs pier from the text, else from the spot type', () => {
+  assert.equal(shoreKind('五十嵐浜のサーフでヒラメ52cm'), 'surf');
+  assert.equal(shoreKind('西港の堤防先端でアジ30匹'), 'pier');
+  assert.equal(shoreKind('ヒラメ1枚', ['サーフ']), 'surf');
+  assert.equal(shoreKind('キス20匹', ['漁港', '港湾（管理釣り場あり）']), 'pier');
+  assert.equal(shoreKind('キス20匹', ['サーフ', '漁港']), null);
+  assert.equal(shoreKind('アジ10匹'), null);
+});
+
+test('archive: a post stored under its old id is replaced, not duplicated', () => {
+  const now = Date.parse('2026-09-26T12:00:00+09:00'), d = now - 86400e3;
+  const c = [{ sp: 'aji', name: 'アジ', count: 5, max: null, method: null, mention: false }];
+  const base = { src: 'x', type: 'shop', area: '上越', spots: [], time: { buckets: [] }, catches: c };
+  const prev = mergeArchive(null, [{ ...base, id: 'OLD', date: d }], now);
+  const arc = mergeArchive(prev, [{ ...base, id: 'hNEW', oldId: 'OLD', date: d }, { ...base, id: 'hOTHER', oldId: 'OLD', date: d - 2 * 86400e3 }], now);
+  assert.deepEqual(arc.records.map((r) => r.id).sort(), ['hNEW', 'hOTHER']);
 });
 
 test('HTML entities: decimal and hex (emoji in blog titles)', async () => {

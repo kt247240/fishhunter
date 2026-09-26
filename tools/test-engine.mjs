@@ -202,6 +202,15 @@ test('急潮【警戒】 adds a caution for the zone\'s spots only', () => {
   } finally { FH.feed.kyucho = keep; }
 });
 
+test('ports closed to anglers are never recommended and read as danger', () => {
+  const nou = FH.spotById['nou-port'];
+  assert.ok(E.isClosed(nou));
+  const t = Date.parse('2026-09-20T07:00:00+09:00'), d = synth(t);
+  assert.equal(E.safety(nou, E.conditions(nou, t, d)).level, 2);
+  assert.ok(!E.topPicks(d, t, 18, 50).some((p) => p.spot.id === 'nou-port'));
+  assert.ok(!E.rankSpots(FH.speciesById.aori, d, t, 12).some((r) => r.spot.id === 'nou-port'));
+});
+
 test('catch log: ボウズ trips count for the review but not for learned patterns', () => {
   const L = FH.catchlog;
   const base = Date.parse('2026-09-20T06:00:00+09:00');

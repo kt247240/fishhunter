@@ -128,8 +128,10 @@ export function extractCatches(text) {
       if (foreign) tail = tail.slice(0, foreign.index);
       const size = tail.match(/(?:(\d{1,3}(?:\.\d)?)\s*~\s*)?(\d{1,3}(?:\.\d)?)\s*cm/i);
       const cnt = tail.match(/(\d{1,3})\s*(匹|本|杯|尾|枚|ハイ(?![ァ-ヶー]))/);
+      // Boats report weights ("マダイ 0.8~4.5kg"): a weight right after the name means it was landed.
+      const kg = /^[\s:：]*(?:\d{1,2}(?:\.\d{1,2})?\s*~\s*)?\d{1,2}(?:\.\d{1,2})?\s*(?:kg|キロ)/i.test(tail);
       const info = byAlias[h.alias];
-      if (!size && !cnt && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) {
+      if (!size && !cnt && !kg && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) {
         // A mere mention ("〜が待っています", "〜狙い", "〜も始まり"): not a catch, but a count in the very next
         // sentence belongs to it, not to a fish named earlier ("マダイヒット！アジも始まり！20匹オーバー").
         last = { ghost: true, sp: info.id, name: info.id ? SPECIES.find((s) => s[0] === info.id)[1] : info.other, alias: h.alias, count: null, min: null, max: null, method: (segMethod || [null])[0], mention: true };
@@ -149,7 +151,7 @@ export function extractCatches(text) {
         sp: info.id, name: info.id ? SPECIES.find((s) => s[0] === info.id)[1] : info.other, alias: h.alias,
         count: cnt ? parseInt(cnt[1], 10) : null, min, max,
         method: (methodInTail || segMethod || [null])[0],
-        mention: !size && !cnt,
+        mention: !size && !cnt && !kg,
         ...(pos ? { pos } : {})
       });
     });
@@ -248,6 +250,29 @@ export function extractTally(text) {
 export function matchSpots(text, spots) {
   const t = normalize(text);
   return spots.filter((s) => [s.name, ...(s.feedAliases || [])].some((a) => a && t.includes(normalize(a)))).map((s) => s.id);
+}
+
+/** Spot type (js/spots.js `type`) → shore kind: surf / pier / rock / mouth (null when unclear). */
+export function kindOfSpotType(type) {
+  if (!type) return null;
+  if (/サーフ/.test(type) && !/突堤|港|磯/.test(type)) return 'surf';
+  if (/港|漁港|突堤|堤防/.test(type)) return 'pier';
+  if (/磯|ゴロタ/.test(type)) return 'rock';
+  if (/河口/.test(type)) return 'mouth';
+  return null;
+}
+const SURF_RE = /サーフ|砂浜|海岸|海水浴場|ビーチ|渚|浜(?:で|に|から|へ|釣り|の釣)/;
+const PIER_RE = /堤防|防波堤|突堤|波止|テトラ|岸壁|漁港|港内|港で|港の|赤灯|白灯|埠頭|ふ頭|桟橋/;
+/**
+ * Where on the shore was this report? The text decides ("サーフでヒラメ", "堤防の先端"); when it names
+ * neither or both, the matched spots' own type decides if they agree. → 'surf' | 'pier' | 'rock' | 'mouth' | null
+ */
+export function shoreKind(text, spotTypes = []) {
+  const t = normalize(text);
+  const surf = SURF_RE.test(t), pier = PIER_RE.test(t);
+  if (surf !== pier) return surf ? 'surf' : 'pier';
+  const kinds = [...new Set(spotTypes.map(kindOfSpotType).filter(Boolean))];
+  return kinds.length === 1 ? kinds[0] : null;
 }
 
 export function snippet(text, n = 140) {

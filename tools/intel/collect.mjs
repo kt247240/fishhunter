@@ -8,12 +8,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
 import { loadEngine, buildDaybook, waterTempBias } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
 import { collectOfficial } from './official.mjs';
 import { dayPeak, calibrate } from './calibrate.mjs';
-import { extractTally, extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+import { extractTally, extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, shoreKind, kindOfSpotType, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
@@ -108,10 +109,14 @@ function toReport(src, it, extra = {}) {
   // Shops sometimes report boat trips: keep them, but out of the shore statistics.
   const type = src.type !== 'boat' && BOAT_RE.test(full) ? 'boat' : src.type;
   return {
-    id: Buffer.from(it.url || it.title).toString('base64url').slice(-24),
+    // Hash of the whole URL: the old id (last 24 base64 chars) collided for posts whose URLs end in the
+    // same slug ("…/05/26/マダイ・ヒラメ" vs "…/05/28/マダイ・ヒラメ"), so the archive overwrote them.
+    id: 'h' + createHash('sha1').update(it.url || it.title).digest('base64url').slice(0, 22),
+    oldId: Buffer.from(it.url || it.title).toString('base64url').slice(-24),
     src: src.id, srcName: src.name, type,
     title: snippet(it.title, 60), url: it.url, date: it.date,
     area, spots, text: snippet(it.text, 160),
+    kind: type === 'boat' || INLAND.has(area) ? null : shoreKind(full, spots.map((id) => SPOTS.find((s) => s.id === id)).filter((s) => s && s.water === 'sea').map((s) => s.type)),
     catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text), colorHits: extractColors(it.title + '\n' + it.text),
     notices: src.type === 'coop' || src.type === 'official' ? extractNotices(it.title, it.text) : [],
     ...(src.type === 'official' && extractVisitors(it.text) != null ? { visitors: extractVisitors(it.text) } : {}),
@@ -124,19 +129,27 @@ const useful = (r) => (r.catches.length || r.notices.length || r.obs) && (r.area
 // Reports older than MAX_AGE found while back-filling: archive only (not in intel.json).
 const HISTORY = [];
 let ARCHIVE_COVERAGE = {};
+// Sources already paged back once (carried in archive.json) — never back-filled again, even when their
+// old posts held nothing useful and the archive coverage therefore still looks short.
+let BACKFILLED = {};
 
 async function collectRss(src) {
   const items = [];
   // A source with deepPages is paged further back once, until the archive holds ~45 days of it.
-  const deep = src.deepPages && !(ARCHIVE_COVERAGE[src.id] <= NOW - 45 * DAY);
+  const deep = src.deepPages && !BACKFILLED[src.id] && !(ARCHIVE_COVERAGE[src.id] <= NOW - 45 * DAY);
   const pages = deep ? src.deepPages : src.pages || 1;
   for (let page = 1; page <= pages; page++) {
-    const url = page === 1 ? src.url : src.url + (src.url.includes('?') ? '&' : '?') + 'paged=' + page;
+    // WordPress pages with ?paged=N; Blogger feeds with start-index (150 posts per page when back-filling).
+    const join = src.url.includes('?') ? '&' : '?';
+    const url = src.paging === 'blogger'
+      ? (deep ? src.url + join + `max-results=150&start-index=${1 + 150 * (page - 1)}` : src.url)
+      : page === 1 ? src.url : src.url + join + 'paged=' + page;
     const r = await get(url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
     if (!r.ok) { if (page === 1) throw new Error('HTTP ' + r.status); break; }
     items.push(...parseFeed(await r.text()));
     if (page < pages) await sleep(1500);
   }
+  if (deep) BACKFILLED[src.id] = new Date(NOW).toISOString().slice(0, 10);
   const tf = src.titleFilter ? new RegExp(src.titleFilter) : null;
   if (deep) HISTORY.push(...items.filter((it) => it.date && NOW - it.date > MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful));
   return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful);
@@ -202,7 +215,8 @@ async function collectHtml(src) {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const items = PARSERS[src.parser](await r.text(), src);
   // Calendar-style sources (deepMonths) are back-filled month by month once, into the archive only.
-  if (src.deepMonths && !(ARCHIVE_COVERAGE[src.id] <= NOW - 300 * DAY)) {
+  if (src.deepMonths && !BACKFILLED[src.id] && !(ARCHIVE_COVERAGE[src.id] <= NOW - 300 * DAY)) {
+    BACKFILLED[src.id] = new Date(NOW).toISOString().slice(0, 10);
     const now = new Date(NOW + 9 * 3600e3);
     for (let k = 1; k <= src.deepMonths; k++) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
@@ -496,6 +510,13 @@ async function main() {
   const health = [];
   const prevArchive = await previousArchive();
   ARCHIVE_COVERAGE = prevArchive.schema === ARCHIVE_SCHEMA ? coverage(prevArchive) : {}; // older schema → re-read history once
+  BACKFILLED = prevArchive.schema === ARCHIVE_SCHEMA ? Object.assign({}, prevArchive.backfilled) : {};
+  // Records archived before shore kinds existed: take the kind from their spots' type when they agree.
+  for (const x of prevArchive.records || []) {
+    if (x.k || x.t === 'boat' || INLAND.has(x.a)) continue;
+    const kinds = [...new Set(x.s.map((id) => SPOTS.find((s) => s.id === id)).filter((s) => s && s.water === 'sea').map((s) => kindOfSpotType(s.type)).filter(Boolean))];
+    if (kinds.length === 1) x.k = kinds[0];
+  }
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
@@ -528,6 +549,7 @@ async function main() {
   fs.writeFileSync(OUT, JSON.stringify(out));
   // Long-term evidence: rolling archive (carried over via the live site) → hotspots.
   const archive = mergeArchive(prevArchive, [...list, ...HISTORY], NOW);
+  archive.backfilled = BACKFILLED;
   fs.writeFileSync(path.join(path.dirname(OUT), 'archive.json'), JSON.stringify(archive));
   const hot = buildHotspots(archive, NOW, { speciesIds: ctx.FH.SPECIES.map((s) => s.id) });
   fs.writeFileSync(path.join(path.dirname(OUT), 'hotspots.json'), JSON.stringify(hot));

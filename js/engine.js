@@ -124,6 +124,8 @@
     const reasons = [];
     let level = 0; // 0 ok, 1 caution, 2 danger
     const up = (l, r) => { level = Math.max(level, l); reasons.push(r); };
+    // Official access rules (js/spots.js `access`): a closed port is never a place to go.
+    if (spot.access && spot.access.level === 'closed') up(2, spot.access.note);
     if (c.code != null && c.code >= 95) up(2, '雷雨の予報：釣り竿は落雷の危険大');
     if (spot.water === 'sea') {
       if (c.wave != null && c.wave >= 2.5) up(2, `波高 ${c.wave.toFixed(1)}m：高波で危険`);
@@ -397,9 +399,11 @@
 
   function speciesFor(spot) { return spot.species.map((id) => FH.speciesById[id]).filter(Boolean); }
 
+  const isClosed = (spot) => !!(spot.access && spot.access.level === 'closed');
+
   /** Rank spots for one species: now score + best window in the next `hours`. */
   function rankSpots(sp, data, now, hours = 24) {
-    return FH.SPOTS.filter((s) => s.species.includes(sp.id)).map((spot) => {
+    return FH.SPOTS.filter((s) => s.species.includes(sp.id) && !isClosed(s)).map((spot) => {
       const ser = series(spot, sp, data, now, hours);
       const nowPt = ser[0];
       const win = windows(ser, { min: 0, limit: 1 })[0] || null;
@@ -411,6 +415,7 @@
   function topPicks(data, now, hours = 18, limit = 6, filter = null) {
     const picks = [];
     for (const spot of FH.SPOTS) {
+      if (isClosed(spot)) continue; // closed to anglers (official notice): never recommended
       for (const sp of speciesFor(spot)) {
         if (filter && !filter(spot, sp)) continue;
         const ser = series(spot, sp, data, now, hours);
@@ -600,5 +605,5 @@
     return out;
   }
 
-  FH.engine = { conditions, score, safety, series, windows, rankSpots, topPicks, weekend, favCompare, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
+  FH.engine = { isClosed, conditions, score, safety, series, windows, rankSpots, topPicks, weekend, favCompare, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

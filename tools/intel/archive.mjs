@@ -8,7 +8,7 @@
 const DAY = 86400e3;
 export const KEEP_DAYS = 400;
 // Bump when extraction changes enough that history should be re-read once (collector back-fills again).
-export const ARCHIVE_SCHEMA = 'fishhunter.archive/3'; // v3: per-day Nojiri URLs, observations, Nagano back-fill
+export const ARCHIVE_SCHEMA = 'fishhunter.archive/4'; // v4: hashed report ids (same-slug posts no longer overwrite) → back-fill once more
 const jstDay = (t) => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
 
 /** Zone keys for a pier position: "m4:o" (400–499 m, outer side), "tip:i", "n2" (posts 21–30). */
@@ -32,6 +32,7 @@ export function zoneLabel(key) {
 export function toRecord(r) {
   const c = (r.catches || []).filter((x) => !x.mention).map((x) => [x.sp || x.name, x.count ?? null, x.max ?? null, x.method || null, zoneKeys(x.pos)]);
   const rec = { id: r.id, d: r.date, src: r.src, t: r.type, a: r.area || null, s: r.spots || [], tb: (r.time && r.time.buckets) || [], v: r.visitors ?? null, c };
+  if (r.kind) rec.k = r.kind; // surf / pier / rock / mouth
   if (r.colorHits && r.colorHits.length) rec.col = r.colorHits; // [[speciesId|null, colour, ±1]]
   if (r.obs && r.obs.waterTemp != null) rec.o = { wt: r.obs.waterTemp }; // measured water temperature
   return rec;
@@ -41,7 +42,13 @@ export function toRecord(r) {
 export function mergeArchive(prev, reports, now = Date.now()) {
   const map = new Map();
   for (const x of (prev && prev.records) || []) if (x && x.id && x.d) map.set(x.id, x);
-  for (const r of reports) if (r.id && r.date && r.date <= now + DAY) map.set(r.id, toRecord(r));
+  for (const r of reports) {
+    if (!r.id || !r.date || r.date > now + DAY) continue;
+    // Replace the same post stored under its pre-hash id (same id and same date = same post).
+    const o = r.oldId && map.get(r.oldId);
+    if (o && o.d === r.date && r.oldId !== r.id) map.delete(r.oldId);
+    map.set(r.id, toRecord(r));
+  }
   const records = [...map.values()].filter((x) => now - x.d <= KEEP_DAYS * DAY && (x.c.length || x.v != null || (x.col && x.col.length) || x.o)).sort((a, b) => b.d - a.d);
   return { schema: ARCHIVE_SCHEMA, updated_at: new Date(now).toISOString(), records };
 }
@@ -66,7 +73,8 @@ export function buildHotspots(archive, now = Date.now(), { days = 60, speciesIds
     if (x.d < since || x.t === 'boat') continue;
     const day = jstDay(x.d);
     // Spot-level evidence, plus "@<area>" buckets for reports that only name the area.
-    for (const sid of [...x.s, ...(x.a ? ['@' + x.a] : [])]) {
+    // …and "@<area>:<kind>" (e.g. "@下越:surf") so surf and pier evidence can be read apart.
+    for (const sid of [...x.s, ...(x.a ? ['@' + x.a] : []), ...(x.a && x.k ? ['@' + x.a + ':' + x.k] : [])]) {
       const S = spots[sid] || (spots[sid] = { days: new Set(), from: x.d, to: x.d, srcs: new Set(), sp: {} });
       S.days.add(day); S.from = Math.min(S.from, x.d); S.to = Math.max(S.to, x.d); S.srcs.add(x.src);
       for (const [csp, name, sign] of x.col || []) {

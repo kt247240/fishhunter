@@ -271,7 +271,8 @@
         "naoetsu"
       ],
       "mode": "rss",
-      "url": "https://rikimarufishing.com/feed/"
+      "url": "https://rikimarufishing.com/feed/",
+      "deepPages": 40
     },
     {
       "id": "yasakamaru",
@@ -282,7 +283,8 @@
         "naoetsu"
       ],
       "mode": "rss",
-      "url": "https://www.yasakamaru.com/feed/"
+      "url": "https://www.yasakamaru.com/feed/",
+      "deepPages": 28
     },
     {
       "id": "kashiwazaki-marina",
@@ -293,7 +295,8 @@
         "kashiwazaki"
       ],
       "mode": "rss",
-      "url": "https://www.kashiwazaki-marine.jp/category/fishinginfo/feed/"
+      "url": "https://www.kashiwazaki-marine.jp/category/fishinginfo/feed/",
+      "deepPages": 12
     },
     {
       "id": "fujiyoshimaru",
@@ -346,7 +349,8 @@
       "spots": [],
       "mode": "rss",
       "url": "https://www.sadoeging.com/feed",
-      "defaultSpecies": "aori"
+      "defaultSpecies": "aori",
+      "deepPages": 20
     },
     {
       "id": "turiage",
@@ -355,7 +359,8 @@
       "area": "上越",
       "spots": [],
       "mode": "rss",
-      "url": "https://turiage.com/feed/"
+      "url": "https://turiage.com/feed/",
+      "deepPages": 20
     },
     {
       "id": "marvelous-act",
@@ -375,7 +380,9 @@
         "nou-port"
       ],
       "mode": "rss",
-      "url": "https://blog2.kouyuu-ngt.com/feeds/posts/default?alt=rss"
+      "url": "https://blog2.kouyuu-ngt.com/feeds/posts/default?alt=rss",
+      "paging": "blogger",
+      "deepPages": 3
     },
     {
       "id": "ripple-seiro",
@@ -386,7 +393,8 @@
         "niigata-east"
       ],
       "mode": "rss",
-      "url": "https://www.anglers-guide-ripple.com/feed/"
+      "url": "https://www.anglers-guide-ripple.com/feed/",
+      "deepPages": 40
     },
     {
       "id": "nojiri-freee",
@@ -450,7 +458,8 @@
         "narai"
       ],
       "mode": "rss",
-      "url": "https://www.naraigawa.jp/?feed=rss2"
+      "url": "https://www.naraigawa.jp/?feed=rss2",
+      "deepPages": 12
     },
     {
       "id": "seikotei-kizaki",
@@ -461,7 +470,8 @@
         "kizaki"
       ],
       "mode": "rss",
-      "url": "https://seikotei.com/feed/"
+      "url": "https://seikotei.com/feed/",
+      "deepPages": 40
     },
     {
       "id": "kayumikyo",
@@ -546,6 +556,17 @@
       "spots": [],
       "mode": "rss",
       "url": "https://rssblog.ameba.jp/hobie-niigataturi/rss20.xml"
+    },
+    {
+      "id": "bonsan-okappari",
+      "name": "僕の陸っぱり備忘録（中越・下越の堤防）",
+      "type": "blog",
+      "area": "中越",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://bonsan-himatubushi.com/feed/",
+      "titleFilter": "【新潟・[^】]+】\\s*\\d{1,2}/\\d{1,2}|【20\\d\\d年\\d{1,2}月\\d{1,2}日】",
+      "deepPages": 18
     },
     {
       "id": "youtube",

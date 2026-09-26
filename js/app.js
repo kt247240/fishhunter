@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v33.1.0 OFFSHORE';
+  const VERSION = 'v33.2.0 SHORE';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -443,7 +443,7 @@
           <span class="sp">${FH.icons.fish(p.sp.id, { size: 26 })} ${esc(p.sp.name)}</span>
           ${ring(p.win.peak, 64)}
           <span class="when">${range(p.win.start, p.win.end, state.now)}</span>
-          <span class="tags">${pickEvidence(p)}${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
+          <span class="tags">${p.spot.access && p.spot.access.level === 'partial' ? '<span class="chip warn">⚠ 防波堤は立入禁止</span>' : ''}${pickEvidence(p)}${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
         </button>`).join('') : '<div class="empty">条件の良い候補が見つかりません（荒天・シーズンオフ）</div>';
       FH.motion.countUp($('#topPicks'));
       renderWeekend(mine, weekend);
@@ -587,6 +587,7 @@
         <dt>タイプ</dt><dd>${esc(sp.type)}${sp.depth ? `（水深: ${{ shallow: '浅い', mid: '中程度', deep: '深い' }[sp.depth]}）` : ''}${sp.elev ? `／標高 約${sp.elev}m` : ''}</dd>
         <dt>対象魚</dt><dd><div class="chips">${list}</div></dd>
         <dt>特徴</dt><dd>${esc(sp.feature)}</dd>
+        ${sp.access ? `<dt>立入</dt><dd class="access-${sp.access.level}">${sp.access.level === 'closed' ? '⛔ ' : sp.access.level === 'partial' ? '⚠ ' : 'ℹ '}${esc(sp.access.note)} <a class="small" href="${esc(sp.access.src)}" target="_blank" rel="noopener">公式の案内</a></dd>` : ''}
         <dt>注意</dt><dd>${esc(sp.caution || '現地の標識・ルールに従ってください')}</dd>
         <dt>座標</dt><dd class="num">${sp.lat.toFixed(3)}, ${sp.lon.toFixed(3)}${dist != null ? ` ／ 現在地から直線 ${dist.toFixed(1)}km` : ''}</dd>
       </dl>

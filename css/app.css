@@ -711,3 +711,5 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
   .tl-line { animation: none; stroke-dashoffset: 0; } .tl-area { animation: none; opacity: 1; }
 }
 .rd-off { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; background: linear-gradient(135deg, rgba(93, 228, 255, .10), rgba(93, 228, 255, .02)); border: 1px solid rgba(93, 228, 255, .25); }
+.access-closed { color: var(--danger); font-weight: 700; } .access-partial { color: var(--caution); }
+.chip.warn { color: var(--caution); border-color: rgba(255, 176, 32, .45); background: rgba(255, 176, 32, .10); }

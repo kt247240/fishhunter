@@ -309,13 +309,14 @@
 
     // 注意
     const warn = [...r.safety.reasons];
+    if (sp.access && sp.access.level === 'partial') warn.unshift(sp.access.note);
     const lead = Math.round((t - now) / 86400e3);
     const k = lead >= 2 && FH.feed.forecastSkill ? FH.feed.forecastSkill(lead) : null;
     if (k && k.wind && k.wind.bias <= -0.7) warn.push(`${k.lead}日先の風予報は実際より約${Math.abs(k.wind.bias).toFixed(1)}m/s弱めに出がち`);
     const cr = book && FH.insight ? FH.insight.crowd(book, sp.id, 6, now) : null;
     if (cr && cr.n >= 5) { const dow = new Date(t + 9 * 3600e3).getUTCDay(); const v = dow === 6 ? cr.sat : dow === 0 ? cr.sun : cr.weekday; if (v != null) warn.push(`混雑の目安 約${v}名（${dow === 6 ? '土曜' : dow === 0 ? '日曜' : '平日'}の中央値）`); }
     if (sp.rules) warn.push(sp.rules);
-    add(r.safety.level >= 1 ? '⚠️' : '✅', '注意', warn.length ? esc(warn.slice(0, 3).join(' ／ ')) : '特になし', '');
+    add(r.safety.level >= 1 || (sp.access && sp.access.level === 'partial') ? '⚠️' : '✅', '注意', warn.length ? esc(warn.slice(0, 3).join(' ／ ')) : '特になし', '');
 
     box.hidden = false;
     $('#planScope').textContent = w ? `ピーク ${hm(w.peakT)} 時点の条件で作成` : '';
