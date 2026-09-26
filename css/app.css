@@ -757,3 +757,16 @@ table.fc td[class*="tone-"] { background: color-mix(in srgb, var(--tone) 22%, va
 .plan-card, .target-card, .lab-card, .gov-card, .radar-card, .chart-card, .fav-compare, #view-now > .card, #view-hunt > .card, #view-log > .card {
   content-visibility: auto; contain-intrinsic-size: auto 640px;
 }
+
+/* ═════════════════ v30 HONEST SCORES ═════════════════ */
+.chance { display: grid; gap: 6px; margin: 4px 0 10px; }
+.chance-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chance-main { margin: 0; font-size: 14px; line-height: 1.6; }
+.chance-main b.num { font-size: 20px; color: var(--accent); }
+.chip.evb { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.chip.evc { color: var(--muted); border-style: dashed; }
+.ev-tabs { display: grid; gap: 10px; margin-top: 8px; }
+.ev-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.ev-seg button { flex: 1 1 auto; min-height: 40px; }
+.ev-seg button:disabled { opacity: .35; }
+.ev-panes > .card:not(.ev-active) { display: none; }

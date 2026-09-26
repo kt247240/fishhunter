@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v29.0.0 FASTER';
+  const VERSION = 'v30.0.0 HONEST';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -195,6 +195,7 @@
         <span class="win-act"><button type="button" class="mini" data-cal="${i}" title="カレンダーに追加（30分前に通知）" aria-label="カレンダーに追加">📅</button><a class="mini" href="${FH.share.googleCalUrl(sp, fish, w, tac0)}" target="_blank" rel="noopener" title="Googleカレンダーに追加" aria-label="Googleカレンダーに追加">G</a></span></li>`).join('')
       : '<li><span></span><span class="muted">72時間以内に目立った時合はありません。条件の良い別の釣り場・魚種も検討を。</span><span></span></li>';
 
+    timed('chance', () => renderChance(sp, fish, wins, now));
     timed('field', () => renderField(sp, c));
     timed('astro', () => renderAstro(sp));
     timed('chart', () => renderChart(sp, fish, now));
@@ -205,6 +206,7 @@
     timed('lab', () => renderLab(sp, fish));
     timed('official', () => renderOfficial(sp, fish));
     timed('picks', () => renderPicks());
+    updateEvTabs();
   }
 
   /* 🏛 Official open data: prefecture sea survey, set-net landings, river discharge. */
@@ -383,6 +385,39 @@
     FH.motion.stagger($('#lab'));
   }
 
+  /** 根拠と分析: one evidence card at a time; tabs whose card has nothing to show are disabled. */
+  function updateEvTabs(pick) {
+    const btns = $$('#evTabs [data-evtab]');
+    const avail = btns.filter((b) => { const c = $('#' + b.dataset.evtab); return c && !c.hidden; });
+    btns.forEach((b) => { b.disabled = !avail.includes(b); });
+    let want = pick || store.get('fh.evtab', 'targetCard');
+    if (!avail.some((b) => b.dataset.evtab === want)) want = avail.length ? avail[0].dataset.evtab : null;
+    if (pick) store.set('fh.evtab', pick);
+    btns.forEach((b) => { const on = b.dataset.evtab === want; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $$('#evTabs .ev-panes > .card').forEach((c) => c.classList.toggle('ev-active', c.id === want));
+    $('#evTabs').hidden = !avail.length;
+  }
+
+  /** Evidence level + calibrated chance under the spot score. */
+  function renderChance(sp, fish, wins, now) {
+    const el = $('#spotChance');
+    const lv = evLevel(sp, fish);
+    const w = wins[0];
+    const ch = lv !== 'C' ? chanceAt(sp, fish, w ? w.peakT : now) : null;
+    const cal = FH.feed.calibration && FH.feed.calibration();
+    const sc = cal && cal.species && cal.species[fish.id];
+    const name = shortName(fish.name);
+    let html = `<div class="chance-row">${evidenceChip(sp, fish)}<span class="small">${{ A: 'この釣り場の釣果記録にもとづく', B: 'エリアの釣果報告あり・この釣り場の記録はなし', C: '天気と季節だけの目安（この釣り場の釣果記録なし）' }[lv]}</span></div>`;
+    if (ch) {
+      html += `<p class="chance-main">📈 ${lv === 'A' ? '' : '<span class="chip evb">参考</span> '}${w ? '次の時合' : '今'}と似た条件の日、管理釣り場で<b>${esc(name)}</b>の釣果報告があったのは <b class="num">${pctTxt(ch.p)}</b><span class="muted small">（${ch.local ? "この釣り場の平均" : "全体平均"} ${pctTxt(ch.base)}）</span></p>
+        <p class="muted small">直江津・東港の毎日の釣果（${ch.n}日分）から算出。1日数十〜百人が釣る場所での「誰かが釣った日」の割合で、一人あたりの確率ではありません。</p>`;
+    } else if (sp.water === 'sea' && sc && sc.base < 0.05) {
+      html += `<p class="muted small">${esc(name)}は管理釣り場ではほとんど釣れない（${pctTxt(sc.base)}の日）ため、実績からの目安は出せません。</p>`;
+    }
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+
   /* 🧭 Plan board: when / where / how / why / watch-outs, assembled from every analysis on this page. */
   function renderPlan(sp, fish, cur, wins, now) {
     const box = $('#planCard');
@@ -400,7 +435,8 @@
     const add = (ic, k, v, sub) => { plain.push({ ic, k, v: strip(v), sub: strip(sub) }); rows.push(`<div class="pl-row"><span class="pl-ic">${ic}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
 
     // いつ
-    if (w) add('⏰', 'いつ', `<b>${esc(range(w.start, w.end, now))}</b> ・ ピーク <b class="num">${w.peak}</b>`, esc(w.tags.join('・')));
+    const pch = evLevel(sp, fish) === 'A' ? chanceAt(sp, fish, t) : null;
+    if (w) add('⏰', 'いつ', `<b>${esc(range(w.start, w.end, now))}</b> ・ ${esc(E.verdict(w.peak).label)} ${w.peak}`, esc(w.tags.join('・')) + (pch ? ` ／ 似た条件の日の釣果報告 ${pctTxt(pch.p)}` : ''));
     else add('⏰', 'いつ', '72時間以内に目立った時合なし', '別の釣り場・魚種も検討を');
 
     // どこ
@@ -431,6 +467,7 @@
     const L = FH.feed.official && FH.feed.official() && FH.feed.official().landings;
     const ls = L && L.species && L.species[fish.id];
     if (ls && ls.avg5 > 0) why.push(`沖の水揚げは5年平均の${Math.round((ls.t / ls.avg5) * 100)}%（${L.month}月）`);
+    why.push({ A: 'この釣り場の釣果記録あり', B: 'エリアの報告のみ', C: '天気と季節だけの目安' }[evLevel(sp, fish)]);
     add('💡', 'なぜ', why.length ? esc(why.join(' ／ ')) : `旬度 ${Math.round(r.season * 100)}%`, '');
 
     // 注意
@@ -522,8 +559,8 @@
     let sub;
     if (!cur) sub = '気象データを待っています';
     else if (cur.safety.level === 2) sub = '⚠ 危険な条件です。今日は撤収・見合わせを推奨します';
-    else if (cur.score >= 80) sub = '今が時合。迷わず竿を出すタイミングです';
-    else if (cur.score >= 65) sub = '好条件。' + (w ? `ピークは${range(w.start, w.end, now)}` : '狙い所を絞って攻めましょう');
+    else if (cur.score >= 90) sub = '条件はそろっています。' + (evLevel(sp, fish) === 'C' ? '（この釣り場は天気と季節だけの目安）' : '実績と合わせて判断を');
+    else if (cur.score >= 75) sub = '好条件。' + (w ? `ピークは${range(w.start, w.end, now)}` : '狙い所を絞って攻めましょう');
     else if (w) sub = `次の時合は${range(w.start, w.end, now)}（ピーク ${w.peak}）`;
     else sub = '72時間以内に目立つ時合はありません。別の釣り場・魚種も検討を';
     $('#heroSub').textContent = sub;
@@ -701,10 +738,27 @@
       <div class="bs-axis">${cells.map((p) => { const h = FH.astro.jstParts(new Date(p.t)).h; return h === 0 ? `<span style="--x:${cells.indexOf(p)}">${md(p.t)}</span>` : ''; }).join('')}</div>`;
   }
 
-  /** "📊 実績 18/30日" badge when this exact spot has a catch record for the species. */
+  const EV = { A: ['📊', '実績あり', 'ev'], B: ['🗺', 'エリア情報', 'evb'], C: ['☁', '天気のみ', 'evc'] };
+  const evLevel = (sp, fish) => (FH.feed.evidenceLevel ? FH.feed.evidenceLevel(sp, fish) : 'C');
+  function evidenceChip(sp, fish) {
+    const [ic, label, cls] = EV[evLevel(sp, fish)];
+    return `<span class="chip ${cls}" title="根拠：${label}">${ic} ${label}</span>`;
+  }
+  /** 実績の釣果日率 at instant t (engine score without evidence/personal extras, as calibrated). */
+  function chanceAt(sp, fish, t) {
+    if (!state.data || !FH.feed.chance) return null;
+    const c = E.conditions(sp, t, state.data);
+    return c.hasWx ? FH.feed.chance(sp, fish, E.score(sp, fish, c).score) : null;
+  }
+  const pctTxt = (x) => Math.round(x * 100) + '%';
+
+  /** Evidence + calibrated chance for a pick card. */
+  // The pier-calibrated chance is shown for spots with their own record (A), marked 参考 for
+  // area-only spots (B), and not at all for weather-only spots (C) — it would be borrowed evidence.
   function pickEvidence(p) {
-    const T = FH.feed.target ? FH.feed.target(p.spot, p.sp) : null;
-    return T && T.scope === 'spot' && T.p && T.p.d30 ? `<span class="chip ev">📊 実績 ${T.p.d30}/30日</span>` : '';
+    const lv = evLevel(p.spot, p.sp);
+    const ch = lv !== 'C' ? chanceAt(p.spot, p.sp, p.win.peakT) : null;
+    return evidenceChip(p.spot, p.sp) + (ch ? `<span class="chip ${lv === 'A' ? 'ev' : 'evb'}" title="管理釣り場（直江津・東港）で、似た条件の日にこの魚の釣果報告があった割合">${lv === 'A' ? '' : '参考 '}釣果日 ${pctTxt(ch.p)}</span>` : '');
   }
 
   function renderPicks() {
@@ -719,6 +773,9 @@
     // Heavy: run in a Web Worker when available, otherwise defer on the main thread.
     computePicks(mine).then(({ picks, weekend }) => {
       if (key !== state.picksKey) return; // superseded by a newer request
+      // Prefer spots whose score is backed by their own catch record (A) over weather-only ones (C).
+      const bonus = { A: 6, B: 3, C: 0 };
+      picks = picks.slice().sort((x, y) => (y.win.peak + bonus[evLevel(y.spot, y.sp)]) - (x.win.peak + bonus[evLevel(x.spot, x.sp)]));
       $('#topPicks').innerHTML = picks.length ? picks.map((p, i) => `
         <button class="pick-card tone-${tone(p.win.peak)}" style="--i:${i}" data-spot="${p.spot.id}" data-sp="${p.sp.id}" type="button">
           <span class="rank-no">#${i + 1} ・ ${esc(p.spot.pref)} ${esc(p.spot.area)}${FH.prefs.isFav(p.spot.id) ? ' ・ ★' : ''}</span>
@@ -1243,6 +1300,8 @@
       if (card) { select(card.dataset.spot, card.dataset.sp, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const bc = e.target.closest('.bs-cell');
       if (bc && chart) { chart.focus(+bc.dataset.ci); return; }
+      const et = e.target.closest('[data-evtab]');
+      if (et && !et.disabled) { updateEvTabs(et.dataset.evtab); FH.motion.stagger($('#' + et.dataset.evtab)); return; }
       const hs = e.target.closest('[data-hot-spot]');
       if (hs) { select(hs.dataset.hotSpot, species().id, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const rsp = e.target.closest('[data-rsp]');

@@ -336,10 +336,12 @@
   }
 
   function verdict(s) {
-    if (s >= 80) return { label: '激アツ', tone: 'hot' };
-    if (s >= 65) return { label: '好機', tone: 'good' };
-    if (s >= 50) return { label: '狙える', tone: 'ok' };
-    if (s >= 35) return { label: '渋め', tone: 'meh' };
+    // Labels describe how well conditions line up, not whether fish will bite. On the pier logs a
+    // day's peak reaches 90+ on ~4% of spot × species days (80+ was 18% and read as hype).
+    if (s >= 90) return { label: '最高条件', tone: 'hot' };
+    if (s >= 75) return { label: '好条件', tone: 'good' };
+    if (s >= 60) return { label: 'まずまず', tone: 'ok' };
+    if (s >= 45) return { label: '渋め', tone: 'meh' };
     return { label: '厳しい', tone: 'bad' };
   }
 

@@ -11,6 +11,7 @@ import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive
 import { loadEngine, buildDaybook } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
 import { collectOfficial } from './official.mjs';
+import { dayPeak, calibrate } from './calibrate.mjs';
 import { extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
@@ -404,6 +405,18 @@ async function writeDaybook(archive, hot) {
   try { data = await pastWeather(FH, ids.map((id) => FH.spotById[id]), start); } catch (e) { console.error('past weather:', e.message); }
   const prev = await previousArchive('daybook.json');
   const book = buildDaybook(FH, archive, ids, data, prev, NOW);
+  if (data) {
+    // score → how often the species was actually reported caught on such days (managed piers)
+    const rows = [];
+    for (const e of book.days) {
+      const spot = FH.spotById[e.s];
+      if (!spot || Date.parse(e.d) < data.wx[e.s].time[0] + 3 * DAY) continue;
+      for (const sp of FH.engine.speciesFor(spot)) { const sc = dayPeak(FH, spot, sp, e.d, data); if (sc != null) rows.push({ sp: sp.id, score: sc, caught: !!e.f[sp.id] }); }
+    }
+    const cal = Object.assign({ schema: 'fishhunter.calibration/1', generated_at: new Date(NOW).toISOString(), spots: ids, days: book.days.length }, calibrate(rows));
+    fs.writeFileSync(path.join(path.dirname(OUT), 'calibration.json'), JSON.stringify(cal));
+    console.log(`calibration: ${rows.length} rows, ${Object.keys(cal.species).length} species`);
+  }
   try { await writeSkill(FH, ids); } catch (e) { console.error('forecast skill:', e.message); }
   fs.writeFileSync(path.join(path.dirname(OUT), 'daybook.json'), JSON.stringify(book));
   console.log(`daybook: ${book.days.length} spot-days for ${ids.join(', ')} (${book.days.filter((d) => d.c).length} with conditions)`);

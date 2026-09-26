@@ -12,6 +12,7 @@
   let book = null;
   let skill = null;
   let official = null;
+  let cal = null;
   const evCache = new Map();
 
   /** Long-term evidence (data/hotspots.json: 60 days of catch DAYS per spot × species × pier zone). */
@@ -75,8 +76,52 @@
     return Math.abs(t - obsT) <= 45 * DAY ? Object.assign({ obsT }, k) : null;
   }
 
+  async function loadCal() {
+    try {
+      const r = await FH.diag.fetchWithTimeout('data/calibration.json', { cache: 'no-store' }, 10000);
+      const j = await r.json();
+      if (j && j.species) cal = j;
+    } catch (_) { /* optional */ }
+  }
+
+  /**
+   * 実績の釣果日率: on managed-pier days whose peak condition score looked like `score`, the share of
+   * days this species was reported caught. Sea species only, and only where the piers are informative
+   * (the species is caught there on ≥ 5% of days). → { p, base, n } | null
+   */
+  function chance(spot, sp, score) {
+    const s = cal && cal.species && cal.species[sp.id];
+    if (!s || spot.water !== 'sea' || s.base < 0.05 || score == null) return null;
+    const x = (Math.max(s.lo, Math.min(s.hi, score)) - 60) / 10;
+    let z = s.a + s.b * x;
+    // The curve is pooled over both piers; shift it to this spot's own catch-day rate when known
+    // (e.g. カワハギ is common at 東港 but rare at 直江津). Smoothed so a few days don't swing it.
+    const S = hot && hot.spots[spot.id];
+    let local = null;
+    if (S && S.reportDays >= 10) {
+      const d = (S.sp[sp.id] && S.sp[sp.id].days) || 0;
+      local = (d + 1) / (S.reportDays + 2);
+      const lg = (q) => Math.log(q / (1 - q));
+      z += lg(local) - lg(Math.min(0.99, Math.max(0.01, s.base)));
+    }
+    return { p: 1 / (1 + Math.exp(-z)), base: local != null ? local : s.base, n: s.n, local: local != null };
+  }
+
+  /**
+   * 根拠の強さ: 'A' this spot has its own catch record for the species, 'B' only area-level reports,
+   * 'C' weather and season only.
+   */
+  function evidenceLevel(spot, sp) {
+    if (!hot) return 'C';
+    const S = hot.spots[spot.id];
+    if (S && S.reportDays >= 10 && S.sp[sp.id] && S.sp[sp.id].days >= 3) return 'A';
+    const A = hot.spots['@' + spot.area];
+    if ((S && S.sp[sp.id]) || (A && A.sp[sp.id] && A.sp[sp.id].days >= 3)) return 'B';
+    return 'C';
+  }
+
   async function load() {
-    const hp = Promise.all([loadHot(), loadBook(), loadSkill(), loadOfficial()]);
+    const hp = Promise.all([loadHot(), loadBook(), loadSkill(), loadOfficial(), loadCal()]);
     try { return await loadIntel(); } finally { await hp; }
   }
   async function loadIntel() {
@@ -297,7 +342,7 @@
     },
     target, hotRank, hotLoaded: () => !!hot,
     daybook: () => book,
-    official: () => official, kaikyo,
+    official: () => official, kaikyo, chance, evidenceLevel, calibration: () => cal,
     kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),

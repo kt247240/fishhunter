@@ -60,14 +60,13 @@
           </div>
         </div>
       </section>
+      <article class="card plan-card" id="planCard" hidden>
+        <div class="card-head"><h3>🧭 今日の作戦ボード <small id="planScope"></small></h3><span class="pl-actions"><button class="btn sm" id="btnPlanImg" type="button">📸 画像</button><button class="btn sm" id="btnPlanCopy" type="button">コピー</button></span></div>
+        <div id="plan"></div>
+      </article>
       <div class="section-head"><h2>今行くならここ</h2><span class="hint" id="pickHint">今後18時間の全釣り場×魚種から算出</span>
         <div class="seg" id="pickScope" hidden><button data-scope="mine" type="button">マイ</button><button data-scope="all" type="button">全域</button></div></div>
       <div class="picks" id="topPicks" data-stagger><div class="skeleton pick-card"></div><div class="skeleton pick-card"></div><div class="skeleton pick-card"></div></div>
-
-      <div class="section-head"><h2>週末の時合</h2><span class="hint" id="wkHint">土日のベスト3</span></div>
-      <div class="weekend" id="weekend"><div class="skeleton" style="height:150px"></div><div class="skeleton" style="height:150px"></div></div>
-      <div class="fav-compare" id="favCompare"></div>
-
       <div class="grid-2">
         <article class="card focus">
           <div class="focus-head">
@@ -79,6 +78,7 @@
             <div class="ring-wrap" id="spotScore" aria-live="polite"></div>
           </div>
           <p class="score-note">スコアは条件の一致度です。釣れる確率ではありません。</p>
+          <div class="chance" id="spotChance" hidden></div>
           <div id="safety" class="safety" hidden></div>
           <details class="more" id="factorsBox">
             <summary><span>スコアの内訳</span><span class="more-sum" id="factorSummary"></span></summary>
@@ -102,33 +102,6 @@
           <div class="astro-strip" id="astroStrip"></div>
         </article>
       </div>
-
-      <article class="card plan-card" id="planCard" hidden>
-        <div class="card-head"><h3>🧭 今日の作戦ボード <small id="planScope"></small></h3><span class="pl-actions"><button class="btn sm" id="btnPlanImg" type="button">📸 画像</button><button class="btn sm" id="btnPlanCopy" type="button">コピー</button></span></div>
-        <div id="plan"></div>
-      </article>
-
-      <article class="card target-card" id="targetCard" hidden>
-        <div class="card-head"><h3>🎯 狙い目 <small id="targetScope"></small></h3><span class="muted small" id="targetStamp"></span></div>
-        <div id="target"></div>
-      </article>
-
-      <article class="card lab-card" id="labCard" hidden>
-        <div class="card-head"><h3>🧠 独自分析 <small id="labScope"></small></h3></div>
-        <div id="lab"></div>
-      </article>
-
-      <article class="card gov-card" id="govCard" hidden>
-        <div class="card-head"><h3>🏛 新潟県の海のデータ <small id="govScope"></small></h3></div>
-        <div id="gov"></div>
-      </article>
-
-      <article class="card radar-card">
-        <div class="card-head"><h3>📡 釣果レーダー <small id="radarScope"></small></h3><span class="muted small" id="radarStamp"></span></div>
-        <div id="radar" class="radar"></div>
-        <div class="sns-links" id="snsLinks"></div>
-      </article>
-
       <article class="card chart-card">
         <div class="card-head">
           <h3>72時間 釣果予測</h3>
@@ -140,6 +113,34 @@
         <div class="chart-box"><canvas id="chart" aria-label="釣果スコアの時間変化グラフ" role="img"></canvas><div class="chart-tip" id="chartTip" hidden></div></div>
         <div class="legend"><span><i class="lg score"></i>釣果スコア</span><span><i class="lg env"></i><em id="legendEnv">波高</em></span><span><i class="lg maz"></i>マズメ</span><span><i class="lg sol"></i>ソルナー</span><span><i class="lg night"></i>夜間</span></div>
       </article>
+      <section class="ev-tabs" id="evTabs" aria-label="根拠と分析">
+        <div class="section-head"><h2>根拠と分析</h2><span class="hint">この釣り場・魚種の裏付け</span></div>
+        <div class="seg ev-seg" role="tablist">
+          <button type="button" data-evtab="targetCard" role="tab">🎯 狙い目</button><button type="button" data-evtab="labCard" role="tab">🧠 独自分析</button><button type="button" data-evtab="govCard" role="tab">🏛 県データ</button><button type="button" data-evtab="radarCard" role="tab">📡 釣果</button>
+        </div>
+        <div class="ev-panes">
+      <article class="card target-card" id="targetCard" hidden>
+        <div class="card-head"><h3>🎯 狙い目 <small id="targetScope"></small></h3><span class="muted small" id="targetStamp"></span></div>
+        <div id="target"></div>
+      </article>
+      <article class="card lab-card" id="labCard" hidden>
+        <div class="card-head"><h3>🧠 独自分析 <small id="labScope"></small></h3></div>
+        <div id="lab"></div>
+      </article>
+      <article class="card gov-card" id="govCard" hidden>
+        <div class="card-head"><h3>🏛 新潟県の海のデータ <small id="govScope"></small></h3></div>
+        <div id="gov"></div>
+      </article>
+      <article class="card radar-card" id="radarCard">
+        <div class="card-head"><h3>📡 釣果レーダー <small id="radarScope"></small></h3><span class="muted small" id="radarStamp"></span></div>
+        <div id="radar" class="radar"></div>
+        <div class="sns-links" id="snsLinks"></div>
+      </article>
+        </div>
+      </section>
+      <div class="section-head"><h2>週末の時合</h2><span class="hint" id="wkHint">土日のベスト3</span></div>
+      <div class="weekend" id="weekend"><div class="skeleton" style="height:150px"></div><div class="skeleton" style="height:150px"></div></div>
+      <div class="fav-compare" id="favCompare"></div>
     </section>
 
     <!-- ───────────── MAP ───────────── -->
