@@ -12,6 +12,43 @@
     const { state, store, spot, species, hookOpts } = ctx;
     const shortName = (n) => n.replace(/（.*?）/g, '');
 
+    /** Today timeline: next 24 h of light phases, the score curve, bite windows and "now". */
+    function timelineSvg(sp, fish, now, wins) {
+      if (!state.data) return '';
+      const ser = E.series(sp, fish, state.data, now, 24).filter((x) => x.score != null);
+      if (ser.length < 6) return '';
+      const W = 320, H = 78, top = 6, base = 46, n = ser.length;
+      const X = (i) => (i / (n - 1)) * W, Y = (v) => base - (v / 100) * (base - top);
+      const col = { night: '#0a1b30', mazume: '#ff9f43', day: '#7ee9ff' };
+      const bands = ser.map((x, i) => { const ph = x.cond.light.phase; return `<rect x="${X(i) - W / (n - 1) / 2}" y="52" width="${W / (n - 1) + 0.5}" height="10" fill="${col[ph] || col.day}" opacity="${ph === 'night' ? 1 : ph === 'mazume' ? 0.85 : 0.35}"/>`; }).join('');
+      const pts = ser.map((x, i) => `${X(i).toFixed(1)},${Y(x.score).toFixed(1)}`);
+      const area = `M0,${base} L${pts.join(' L')} L${W},${base} Z`;
+      const t0 = ser[0].t, t1 = ser[n - 1].t;
+      const XT = (t) => Math.max(0, Math.min(W, ((t - t0) / (t1 - t0)) * W));
+      const win = wins.filter((w) => w.start < t1 + 3600e3).map((w) => `<rect class="tl-win" x="${XT(w.start)}" y="${top - 2}" width="${Math.max(3, XT(w.end) - XT(w.start))}" height="${base - top + 2}" rx="4"/>`).join('');
+      let pk = 0; ser.forEach((x, i) => { if (x.score > ser[pk].score) pk = i; });
+      const ticks = ser.map((x, i) => { const h = new Date(x.t + 9 * 3600e3).getUTCHours(); return h % 6 === 0 ? `<text x="${X(i)}" y="75" class="tl-tick">${h}時</text>` : ''; }).join('');
+      const c = fish.color || '#5de4ff';
+      return `<svg class="timeline" viewBox="0 0 ${W} ${H}" role="img" aria-label="今後24時間の条件スコアと時間帯">
+        <defs><linearGradient id="tlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".75"/><stop offset="1" stop-color="${c}" stop-opacity=".05"/></linearGradient></defs>
+        ${bands}${win}<path class="tl-area" d="${area}" fill="url(#tlg)"/><polyline class="tl-line" points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6"/>
+        <circle cx="${X(pk)}" cy="${Y(ser[pk].score)}" r="3.2" fill="#fff"/><text x="${Math.min(W - 14, Math.max(14, X(pk)))}" y="${Math.max(9, Y(ser[pk].score) - 5)}" class="tl-peak">${ser[pk].score}</text>
+        <line x1="1" x2="1" y1="${top - 2}" y2="62" class="tl-now"/><circle cx="2" cy="${Y(ser[0].score)}" r="3" class="tl-now-dot"/>${ticks}</svg>
+        <div class="tl-legend"><span><i style="background:#0a1b30"></i>夜</span><span><i style="background:#ff9f43"></i>まずめ</span><span><i style="background:#7ee9ff;opacity:.5"></i>日中</span><span><i class="tl-win-key"></i>時合</span></div>`;
+    }
+
+    /** Liquid gauge for a 0..1 rate. */
+    function gaugeSvg(p, color) {
+      const lvl = 58 - p * 52;
+      const wave = (y) => `M0 ${y} Q 8 ${y - 3} 16 ${y} T 32 ${y} T 48 ${y} T 64 ${y} T 80 ${y} T 96 ${y} T 112 ${y} T 128 ${y} V 64 H 0 Z`;
+      return `<svg class="gauge" viewBox="0 0 64 64" width="72" height="72" role="img" aria-label="${Math.round(p * 100)}%">
+        <defs><clipPath id="gclip"><circle cx="32" cy="32" r="27"/></clipPath></defs>
+        <circle cx="32" cy="32" r="30" fill="none" stroke="${color}" stroke-opacity=".45" stroke-width="2"/>
+        <g clip-path="url(#gclip)"><rect width="64" height="64" fill="rgba(255,255,255,.04)"/>
+          <path class="gauge-w2" d="${wave(lvl + 2)}" fill="${color}" opacity=".35"/><path class="gauge-w1" d="${wave(lvl)}" fill="${color}" opacity=".75"/></g>
+        <text x="32" y="37" text-anchor="middle" class="gauge-t">${Math.round(p * 100)}<tspan font-size="9">%</tspan></text></svg>`;
+    }
+
   /* 🏛 Official open data: prefecture sea survey, set-net landings, river discharge. */
   function renderOfficial(sp, fish) {
     const box = $('#govCard');
@@ -209,8 +246,9 @@
     const name = shortName(fish.name);
     let html = `<div class="chance-row">${evidenceChip(sp, fish)}<span class="small">${{ A: 'この釣り場の釣果記録にもとづく', B: 'エリアの釣果報告あり・この釣り場の記録はなし', C: '天気と季節だけの目安（この釣り場の釣果記録なし）' }[lv]}</span></div>`;
     if (ch) {
+      html += `<div class="chance-gauge">${gaugeSvg(ch.p, fish.color || '#5de4ff')}<div>`;
       html += `<p class="chance-main">📈 ${lv === 'A' ? '' : '<span class="chip evb">参考</span> '}${w ? '次の時合' : '今'}と似た条件の日、管理釣り場で<b>${esc(name)}</b>の釣果報告があったのは <b class="num">${pctTxt(ch.p)}</b><span class="muted small">（${ch.local ? "この釣り場の平均" : "全体平均"} ${pctTxt(ch.base)}）</span></p>
-        <p class="muted small">直江津・東港の毎日の釣果（${ch.n}日分）から算出。1日数十〜百人が釣る場所での「誰かが釣った日」の割合で、一人あたりの確率ではありません。</p>`;
+        <p class="muted small">管理釣り場・ボート店の毎日の釣果（${ch.n}日分）から算出。多くの人が釣る場所での「誰かが釣った日」の割合で、一人あたりの確率ではありません。</p></div></div>`;
     } else if (sp.water === 'sea' && sc && sc.base < 0.05) {
       html += `<p class="muted small">${esc(name)}は管理釣り場ではほとんど釣れない（${pctTxt(sc.base)}の日）ため、実績からの目安は出せません。</p>`;
     }
@@ -281,7 +319,7 @@
 
     box.hidden = false;
     $('#planScope').textContent = w ? `ピーク ${hm(w.peakT)} 時点の条件で作成` : '';
-    $('#plan').innerHTML = rows.join('');
+    $('#plan').innerHTML = `<div class="tl-wrap">${timelineSvg(sp, fish, now, wins)}</div>` + rows.join('');
     state.planText = text.join('\n') + '\n' + location.origin + location.pathname;
     state.plan = { rows: plain, score: w ? w.peak : r.score, win: w, cond: c };
   }

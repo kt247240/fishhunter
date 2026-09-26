@@ -10,6 +10,8 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon.svg">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/panels.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="css/panels.css"></noscript>
   <link rel="preload" href="assets/angler.webp" as="image" type="image/webp">
   <script>try{var t=localStorage.getItem('fh.theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 </head>
@@ -286,25 +288,24 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/diagnostics.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/spots.js"></script>
-  <script src="js/astro.js"></script>
-  <script src="js/weather.js"></script>
-  <script src="js/community.js"></script>
-  <script src="js/feed.js"></script>
-  <script src="js/catchlog.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/insight.js"></script>
-  <script src="js/science.js"></script>
-  <script src="js/motion.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/scene.js"></script>
-  <script src="js/map.js"></script>
-  <script src="js/share.js"></script>
-  <script src="js/prefs.js"></script>
-  <script src="js/panels.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/ptr.js"></script>
+  <script src="js/diagnostics.js" defer></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/spots.js" defer></script>
+  <script src="js/icons.js" defer></script>
+  <script src="js/astro.js" defer></script>
+  <script src="js/weather.js" defer></script>
+  <script src="js/community.js" defer></script>
+  <script src="js/feed.js" defer></script>
+  <script src="js/catchlog.js" defer></script>
+  <script src="js/engine.js" defer></script>
+  <script src="js/motion.js" defer></script>
+  <script src="js/ui.js" defer></script>
+  <script src="js/scene.js" defer></script>
+  <script src="js/map.js" defer></script>
+  <script src="js/share.js" defer></script>
+  <script src="js/prefs.js" defer></script>
+  <script src="js/panels.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="js/ptr.js" defer></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v32.2.0 CURL';
+  const VERSION = 'v33.0.0 LOOK';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -137,6 +137,16 @@
     el.innerHTML = msg; el.hidden = false;
   }
 
+  // On-demand modules: loaded once, then the affected views re-render.
+  const lazyLoads = {};
+  function need(src) {
+    return lazyLoads[src] || (lazyLoads[src] = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src; el.async = true; el.onload = resolve; el.onerror = () => { delete lazyLoads[src]; reject(new Error(src)); };
+      document.head.appendChild(el);
+    }));
+  }
+
   // Per-section render cost (ms) of the last NOW render, for 診断 and perf work.
   const perf = {};
   function timed(name, fn) { const t = performance.now(); try { return fn(); } finally { perf[name] = Math.round(performance.now() - t); } }
@@ -147,7 +157,7 @@
     $('#spotName').textContent = sp.name;
     $('#spotMeta').textContent = `${sp.pref}・${sp.area} ／ ${sp.type}`;
     $('#spotChips').innerHTML = E.speciesFor(sp).map((s) =>
-      `<button class="chip dot${s.id === fish.id ? ' accent' : ''}" style="--c:${s.color}" data-sp="${s.id}" type="button">${esc(s.name)}</button>`).join('');
+      `<button class="chip sp-chip${s.id === fish.id ? ' accent' : ''}" style="--c:${s.color}" data-sp="${s.id}" type="button">${FH.icons.fish(s.id, { size: 22 })}${esc(s.name)}</button>`).join('');
     $('#routeLink').href = `https://www.google.com/maps/dir/?api=1&destination=${sp.lat},${sp.lon}`;
 
     if (!d) {
@@ -424,10 +434,11 @@
       const bonus = { A: 6, B: 3, C: 0 };
       picks = picks.slice().sort((x, y) => (y.win.peak + bonus[evLevel(y.spot, y.sp)]) - (x.win.peak + bonus[evLevel(x.spot, x.sp)]));
       $('#topPicks').innerHTML = picks.length ? picks.map((p, i) => `
-        <button class="pick-card tone-${tone(p.win.peak)}" style="--i:${i}" data-spot="${p.spot.id}" data-sp="${p.sp.id}" type="button">
-          <span class="rank-no">#${i + 1} ・ ${esc(p.spot.pref)} ${esc(p.spot.area)}${FH.prefs.isFav(p.spot.id) ? ' ・ ★' : ''}</span>
+        <button class="pick-card tone-${tone(p.win.peak)}${i < 3 ? ' medal m' + (i + 1) : ''}" style="--i:${i};--c:${p.sp.color}" data-spot="${p.spot.id}" data-sp="${p.sp.id}" type="button">
+          <span class="pk-fish" aria-hidden="true">${FH.icons.fish(p.sp.id, { size: 150 })}</span>
+          <span class="rank-no">${i < 3 ? `<b class="medal-no">${i + 1}</b>` : '#' + (i + 1)} ・ ${esc(p.spot.pref)} ${esc(p.spot.area)}${FH.prefs.isFav(p.spot.id) ? ' ・ ★' : ''}</span>
           <h4>${esc(p.spot.name)}</h4>
-          <span class="sp">${esc(p.sp.name)}</span>
+          <span class="sp">${FH.icons.fish(p.sp.id, { size: 26 })} ${esc(p.sp.name)}</span>
           ${ring(p.win.peak, 64)}
           <span class="when">${range(p.win.start, p.win.end, state.now)}</span>
           <span class="tags">${pickEvidence(p)}${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
@@ -588,6 +599,7 @@
 
 
   function renderHunt() {
+    if (!FH.SCIENCE) need('js/science.js').then(() => { state.dirty.add('hunt'); render(); }).catch(() => {});
     const sp = spot(), fish = species(), d = state.data;
     const m = FH.astro.jstParts(new Date(state.now)).m;
     $('#huntName').textContent = fish.name;
@@ -1067,6 +1079,9 @@
     if (!FH.prefs.get().onboarded) setTimeout(() => FH.prefs.onboarding(afterOnboarding), 900);
     renderInstall();
     FH.feed.load().then(() => { state.picksKey = null; markAllDirty(); render(); });
+    // 独自分析 (analogs, season flow, crowding) is not needed for the first paint.
+    const idle = g.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    idle(() => need('js/insight.js').then(() => { markAllDirty(); render(); }).catch(() => {}));
     if ('serviceWorker' in navigator && /^(https:|http:\/\/localhost|http:\/\/127\.)/.test(location.href)) {
       navigator.serviceWorker.register('sw.js').then(() => FH.diag.report('sw', { label: 'オフラインキャッシュ', state: 'ok', detail: '登録済み' }))
         .catch((e) => FH.diag.report('sw', { label: 'オフラインキャッシュ', state: 'warn', detail: String(e.message || e) }));
@@ -1074,7 +1089,8 @@
     FH.catchlog.on(() => { state.picksKey = null; });
   }
 
+  // Expose before booting: with deferred scripts the document is already 'interactive' here.
+  FH.app = { state, select, show, VERSION, perf };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-  FH.app = { state, select, show, VERSION, perf };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
