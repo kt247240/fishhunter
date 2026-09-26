@@ -274,4 +274,9 @@ test('single-species tallies: ドーム船, bass rental, eging log, 0 catch', ()
   assert.equal(extractTally('新しいロッドが入荷しました').count, null);
 });
 
+test('HTML entities: decimal and hex (emoji in blog titles)', async () => {
+  const { stripHtml } = await import('./intel/extract.mjs');
+  assert.equal(stripHtml('【&#x1F991;アオリイカ&#x1F991;】&#12354;&amp;'), '【🦑アオリイカ🦑】あ&');
+});
+
 console.log(`\nFishHunter intel tests: ${passed} passed`);

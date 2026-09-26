@@ -65,7 +65,7 @@ export function stripHtml(html) {
     .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d|tr)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n));
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)));
 }
 
 const CATCH_VERB = /釣れ|釣果|ヒット|キャッチ|ゲット|GET|上が(り|っ)|釣り上げ|確保|入れ食い|爆釣|連発/;

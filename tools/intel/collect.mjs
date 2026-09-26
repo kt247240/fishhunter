@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { execFile } from 'node:child_process';
 import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
 import { loadEngine, buildDaybook, waterTempBias } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
@@ -35,12 +36,34 @@ const BOT_RE = /記事の要約|をお届け|お伝えします|振り返|に関
 const BOAT_RE = /沖で|沖では|沖の|[^\s]沖 |船釣り|遊漁船|乗合|ジギング船|タイラバ船|丸さん|ティップラン|ボートで/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function get(url, accept) {
+  const headers = { 'user-agent': UA, accept: accept || '*/*', 'accept-language': 'ja,en;q=0.7' };
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 20000);
+  let r;
   try {
-    const r = await fetch(url, { headers: { 'user-agent': UA, accept: accept || '*/*', 'accept-language': 'ja,en;q=0.7' }, signal: ctl.signal, redirect: 'follow' });
-    return r;
+    r = await fetch(url, { headers, signal: ctl.signal, redirect: 'follow' });
   } finally { clearTimeout(t); }
+  // Some hosts' firewalls answer Node's HTTP client with 403/503 while accepting the very same request
+  // (same honest User-Agent) from curl — e.g. トビヌケ新潟 on cocolog. Retry once with curl; a site that
+  // refuses FishHunter itself refuses curl too, so this never gets around a real refusal.
+  if (r.status === 403 || r.status === 503) {
+    const c = await curlGet(url, headers).catch(() => null);
+    if (c && c.status === 200) return c;
+  }
+  return r;
+}
+
+/** Minimal Response-like result from curl (same headers). */
+function curlGet(url, headers) {
+  const args = ['-sS', '-L', '--max-time', '20', '-o', '-', '-w', '\n%{http_code}'];
+  for (const [k, v] of Object.entries(headers)) args.push('-H', `${k}: ${v}`);
+  args.push(url);
+  return new Promise((resolve, reject) => execFile('curl', args, { encoding: 'buffer', maxBuffer: 20 * 1024 * 1024 }, (err, out) => {
+    if (err) return reject(err);
+    const s = out.toString('latin1'), i = s.lastIndexOf('\n');
+    const status = +s.slice(i + 1), body = out.subarray(0, i);
+    resolve({ ok: status >= 200 && status < 300, status, text: async () => body.toString('utf8'), json: async () => JSON.parse(body.toString('utf8')), arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.length) });
+  }));
 }
 
 function parseFeed(xml) {

@@ -1,0 +1,4 @@
+# Candidate feeds to test from a GitHub runner (one URL per line). Results: Actions → FishHunter source probe.
+https://tobi-niigata.cocolog-nifty.com/blog/atom.xml
+https://hanayaboat.com/feed/?post_type=chouka_bass
+https://rssblog.ameba.jp/hakuba-ron-bass/rss20.xml
