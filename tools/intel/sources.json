@@ -121,7 +121,8 @@
       ],
       "mode": "html",
       "parser": "nojiriko",
-      "url": "https://www.nojiriko.jp/bass.php"
+      "url": "https://www.nojiriko.jp/bass.php",
+      "deepMonths": 14
     },
     {
       "id": "kizakiko-wakasagi",
@@ -132,7 +133,8 @@
         "kizaki"
       ],
       "mode": "rss",
-      "url": "https://www.kizakiko.jp/category/wakasagi-fishing-result/feed/"
+      "url": "https://www.kizakiko.jp/category/wakasagi-fishing-result/feed/",
+      "deepPages": 12
     },
     {
       "id": "kizakiko-bass",
@@ -143,7 +145,8 @@
         "kizaki"
       ],
       "mode": "rss",
-      "url": "https://www.kizakiko.jp/category/bass-fishing-result/feed/"
+      "url": "https://www.kizakiko.jp/category/bass-fishing-result/feed/",
+      "deepPages": 6
     },
     {
       "id": "tobinuke-niigata",

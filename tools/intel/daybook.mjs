@@ -26,6 +26,28 @@ export const dayConditions = (FH, spot, day, data) => FH.insight.dayConditions(s
  * prev: previous daybook (carried over). Returns { schema, days: [{s, d, dow, c, v, f}] }.
  * f: { speciesId: [fish, maxSize|null, topZone|null] } — only the app's species ids.
  */
+/**
+ * Lake/river water temperature: measured (daybook `wt`) vs the engine's air-temperature estimate
+ * (`c.sst` for non-sea spots) → { spotId: { bias, n, maeBefore, maeAfter, months: { m: bias } } }.
+ */
+export function waterTempBias(FH, book) {
+  const out = {};
+  const r2 = (x) => Math.round(x * 100) / 100;
+  for (const id of [...new Set(book.days.map((e) => e.s))]) {
+    const spot = FH.spotById[id];
+    if (!spot || spot.water === 'sea') continue;
+    const pairs = book.days.filter((e) => e.s === id && e.wt != null && e.c && e.c.sst != null).map((e) => ({ m: +e.d.slice(5, 7), d: e.wt - e.c.sst }));
+    if (pairs.length < 15) continue;
+    const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const bias = mean(pairs.map((p) => p.d));
+    const months = {};
+    for (const m of [...new Set(pairs.map((p) => p.m))]) { const xs = pairs.filter((p) => p.m === m).map((p) => p.d); if (xs.length >= 8) months[m] = r2(mean(xs)); }
+    const after = pairs.map((p) => p.d - (months[p.m] ?? bias));
+    out[id] = { bias: r2(bias), n: pairs.length, maeBefore: r2(mean(pairs.map((p) => Math.abs(p.d)))), maeAfter: r2(mean(after.map(Math.abs))), months };
+  }
+  return out;
+}
+
 export function buildDaybook(FH, archive, spotIds, data, prev, now = Date.now()) {
   const want = new Set(spotIds);
   const ids = new Set(FH.SPECIES.map((s) => s.id));
@@ -37,6 +59,7 @@ export function buildDaybook(FH, archive, spotIds, data, prev, now = Date.now())
       const d = jstDay(x.d), k = s + '|' + d;
       const e = byKey.get(k) || { s, d, dow: new Date(Date.parse(d + 'T12:00:00+09:00')).getUTCDay(), v: null, f: {}, zc: {} };
       if (x.v != null) e.v = Math.max(e.v || 0, x.v);
+      if (x.o && x.o.wt != null) e.wt = x.o.wt; // measured water temperature (e.g. 野尻湖マリーナ)
       for (const [sp, cnt, max, , zones] of x.c) {
         if (!ids.has(sp)) continue;
         const f = e.f[sp] || (e.f[sp] = [0, null, null]);

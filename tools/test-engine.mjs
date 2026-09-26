@@ -231,4 +231,17 @@ test('personal pattern learns 時化後 and water temperature, not tide', () => 
   L.all().filter((x) => x.speciesId === 'mejina').forEach((x) => L.remove(x.id));
 });
 
+test('lake water estimate uses the learned correction when present', () => {
+  const noj = FH.spotById.nojiri, t = Date.parse('2026-08-10T12:00:00+09:00'), d = synth(t, { wx: { temp: 24 } });
+  const raw = E.conditions(noj, t, d).waterTemp;
+  const keep = FH.feed.waterBias;
+  FH.feed.waterBias = (id, m) => (id === 'nojiri' && m === 8 ? 2.9 : null);
+  try {
+    const c = E.conditions(noj, t + 1, d);
+    assert.ok(Math.abs(c.waterTemp - raw - 2.9) < 0.01, `${raw} → ${c.waterTemp}`);
+    assert.ok(c.waterTempCal);
+    assert.match(E.score(noj, FH.speciesById.bass, c).factors.find((f) => f.key === 'temp').note, /実測で補正/);
+  } finally { FH.feed.waterBias = keep; }
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

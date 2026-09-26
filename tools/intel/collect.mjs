@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
-import { loadEngine, buildDaybook } from './daybook.mjs';
+import { loadEngine, buildDaybook, waterTempBias } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
 import { collectOfficial } from './official.mjs';
 import { dayPeak, calibrate } from './calibrate.mjs';
@@ -124,14 +124,17 @@ const PARSERS = {
     }).filter(Boolean);
   },
   // 野尻湖マリーナ: daily blocks "MM月DD日（曜）天候…水温 24℃…スモールマウス：30cm～46cm ？匹～6匹 コメント…"
-  nojiriko(html, src) {
+  // 野尻湖マリーナ: one daily log per day (天候・水温・水質・平均釣果). `ym` = [year, month] of a past
+  // calendar page (?yyyy=&mm=) when back-filling; each day gets its own URL so the archive keeps them apart.
+  nojiriko(html, src, ym = null) {
     const t = normalize(stripHtml(html)).replace(/\s+/g, ' ');
-    const year = new Date(NOW + 9 * 3600e3).getUTCFullYear();
+    const year = ym ? ym[0] : new Date(NOW + 9 * 3600e3).getUTCFullYear();
     const parts = t.split(/(?=(\d{2})月(\d{2})日\s*\([月火水木金土日]\))/).filter((x) => /^\d{2}月\d{2}日/.test(x));
-    return parts.slice(0, 10).map((p) => {
+    return parts.slice(0, ym ? 40 : 10).map((p) => {
       const d = p.match(/^(\d{2})月(\d{2})日/);
       let date = Date.UTC(year, +d[1] - 1, +d[2], 3);
-      if (date > NOW + DAY) date = Date.UTC(year - 1, +d[1] - 1, +d[2], 3);
+      if (!ym && date > NOW + DAY) date = Date.UTC(year - 1, +d[1] - 1, +d[2], 3);
+      const dayUrl = `${src.url}?yyyy=${new Date(date).getUTCFullYear()}&mm=${d[1]}#d${d[1]}${d[2]}`;
       const wt = p.match(/水温\s*(\d{1,2}(?:\.\d)?)\s*(?:℃|°C|度)/);
       const clarity = (p.match(/水質\s*(\S+?)\s*(?=平均釣果|コメント)/) || [])[1] || null;
       const sm = p.match(/スモールマウス:\s*(\d{1,2})cm~(\d{1,2})cm\s*(\S*?)匹~(\d{1,2})匹/);
@@ -142,7 +145,7 @@ const PARSERS = {
       if (sm) mk(sm, 'スモールマウス');
       if (lg) mk(lg, 'ラージマウス');
       return {
-        title: `${d[1]}/${d[2]} 野尻湖 バス釣果`, url: src.url, date, text: comment,
+        title: `${d[1]}/${d[2]} 野尻湖 バス釣果`, url: dayUrl, date, text: comment,
         extra: { catches, obs: wt ? { waterTemp: +wt[1], clarity } : null }
       };
     });
@@ -153,7 +156,24 @@ async function collectHtml(src) {
   const r = await get(src.url, 'text/html');
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const items = PARSERS[src.parser](await r.text(), src);
-  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE).map((it) => toReport(src, it, it.extra || {})).filter(useful);
+  // Calendar-style sources (deepMonths) are back-filled month by month once, into the archive only.
+  if (src.deepMonths && !(ARCHIVE_COVERAGE[src.id] <= NOW - 300 * DAY)) {
+    const now = new Date(NOW + 9 * 3600e3);
+    for (let k = 1; k <= src.deepMonths; k++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
+      const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+      await sleep(1500);
+      try {
+        const rr = await get(`${src.url}?yyyy=${y}&mm=${String(m).padStart(2, '0')}`, 'text/html');
+        if (!rr.ok) continue;
+        const old = PARSERS[src.parser](await rr.text(), src, [y, m]);
+        HISTORY.push(...old.filter((it) => it.date && NOW - it.date > MAX_AGE).map((it) => toReport(src, it, it.extra || {})).filter(useful));
+        items.push(...old.filter((it) => it.date && NOW - it.date <= MAX_AGE));
+      } catch (_) { /* skip a month */ }
+    }
+  }
+  const seen = new Set();
+  return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && !seen.has(it.url) && seen.add(it.url)).map((it) => toReport(src, it, it.extra || {})).filter(useful);
 }
 
 /* ───────── YouTube Data API v3 (official; needs YOUTUBE_API_KEY) ─────────
@@ -397,7 +417,11 @@ async function writeSkill(FH, ids) {
 
 async function writeDaybook(archive, hot) {
   const FH = loadEngine(root);
-  const ids = Object.entries(hot.spots).filter(([id, S]) => id[0] !== '@' && S.reportDays >= 10 && FH.spotById[id]).map(([id]) => id);
+  // Spots with a real record anywhere in the archive (≥ 20 report days), not just the last 60 days:
+  // seasonal lakes (ワカサギ in winter, バス in summer) would otherwise drop out off-season.
+  const daysBySpot = {};
+  for (const x of archive.records) if (x.t !== 'boat') for (const s of x.s) (daysBySpot[s] || (daysBySpot[s] = new Set())).add(new Date(x.d + 9 * 3600e3).toISOString().slice(0, 10));
+  const ids = Object.entries(daysBySpot).filter(([id, d]) => d.size >= 20 && FH.spotById[id]).map(([id]) => id);
   if (!ids.length) return;
   let data = null;
   const first = Math.min(...archive.records.filter((x) => x.s.some((s) => ids.includes(s))).map((x) => x.d));
@@ -413,7 +437,7 @@ async function writeDaybook(archive, hot) {
       if (!spot || Date.parse(e.d) < data.wx[e.s].time[0] + 3 * DAY) continue;
       for (const sp of FH.engine.speciesFor(spot)) { const sc = dayPeak(FH, spot, sp, e.d, data); if (sc != null) rows.push({ sp: sp.id, score: sc, caught: !!e.f[sp.id] }); }
     }
-    const cal = Object.assign({ schema: 'fishhunter.calibration/1', generated_at: new Date(NOW).toISOString(), spots: ids, days: book.days.length }, calibrate(rows));
+    const cal = Object.assign({ schema: 'fishhunter.calibration/1', generated_at: new Date(NOW).toISOString(), spots: ids, days: book.days.length }, calibrate(rows), { waterTemp: waterTempBias(FH, book) });
     fs.writeFileSync(path.join(path.dirname(OUT), 'calibration.json'), JSON.stringify(cal));
     console.log(`calibration: ${rows.length} rows, ${Object.keys(cal.species).length} species`);
   }

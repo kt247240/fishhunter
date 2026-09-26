@@ -91,7 +91,7 @@
    */
   function chance(spot, sp, score) {
     const s = cal && cal.species && cal.species[sp.id];
-    if (!s || spot.water !== 'sea' || s.base < 0.05 || score == null) return null;
+    if (!s || s.base < 0.05 || score == null) return null;
     const x = (Math.max(s.lo, Math.min(s.hi, score)) - 60) / 10;
     let z = s.a + s.b * x;
     // The curve is pooled over both piers; shift it to this spot's own catch-day rate when known
@@ -105,6 +105,13 @@
       z += lg(local) - lg(Math.min(0.99, Math.max(0.01, s.base)));
     }
     return { p: 1 / (1 + Math.exp(-z)), base: local != null ? local : s.base, n: s.n, local: local != null };
+  }
+
+  /** Learned correction (℃) for the air-temperature water estimate at this lake/river, by month. */
+  function waterBias(spotId, month) {
+    const w = cal && cal.waterTemp && cal.waterTemp[spotId];
+    if (!w) return null;
+    return w.months && w.months[month] != null ? w.months[month] : w.bias;
   }
 
   /**
@@ -342,7 +349,7 @@
     },
     target, hotRank, hotLoaded: () => !!hot,
     daybook: () => book,
-    official: () => official, kaikyo, chance, evidenceLevel, calibration: () => cal,
+    official: () => official, kaikyo, chance, evidenceLevel, waterBias, calibration: () => cal,
     kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),

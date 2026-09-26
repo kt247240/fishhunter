@@ -84,6 +84,9 @@
       if (mean72 != null) {
         let est = spot.water === 'lake' ? mean72 + 1 : mean72 - 1;
         if (spot.water === 'river' && (c.month === 4 || c.month === 5) && (spot.elev || 0) >= 400) est -= 2; // snowmelt
+        // Correction learned from measured temperatures at this spot (e.g. 野尻湖マリーナ's daily log).
+        const wb = FH.feed && FH.feed.waterBias ? FH.feed.waterBias(spot.id, c.month) : null;
+        if (wb != null) { est += wb; c.waterTempCal = true; }
         c.waterTemp = clamp(est, 1, 30); c.waterTempEst = true;
       } else { c.waterTemp = null; c.waterTempEst = true; }
     }
@@ -256,7 +259,7 @@
     let thermo = null; // species-specific: never written onto the shared conditions object
     if (deep != null) { const td = trap(deep, sp.temp); if (td != null && td * THERMO_W > (ts ?? 0)) { ts = td * THERMO_W; thermo = deep; } }
     f.temp = ts == null ? 0.6 : ts;
-    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempObs ? '実測' : c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）` +
+    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempObs ? '実測' : c.waterTempCal ? '推定（実測で補正）' : c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）` +
       (thermo != null ? `／表層が高水温。少し深いタナは約${thermo.toFixed(0)}℃と推定 → 深め・朝夕が有利` : '');
 
     if (spot.water === 'sea') {

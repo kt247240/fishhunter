@@ -8,7 +8,7 @@
 const DAY = 86400e3;
 export const KEEP_DAYS = 400;
 // Bump when extraction changes enough that history should be re-read once (collector back-fills again).
-export const ARCHIVE_SCHEMA = 'fishhunter.archive/2';
+export const ARCHIVE_SCHEMA = 'fishhunter.archive/3'; // v3: per-day Nojiri URLs, observations, Nagano back-fill
 const jstDay = (t) => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
 
 /** Zone keys for a pier position: "m4:o" (400–499 m, outer side), "tip:i", "n2" (posts 21–30). */
@@ -33,6 +33,7 @@ export function toRecord(r) {
   const c = (r.catches || []).filter((x) => !x.mention).map((x) => [x.sp || x.name, x.count ?? null, x.max ?? null, x.method || null, zoneKeys(x.pos)]);
   const rec = { id: r.id, d: r.date, src: r.src, t: r.type, a: r.area || null, s: r.spots || [], tb: (r.time && r.time.buckets) || [], v: r.visitors ?? null, c };
   if (r.colorHits && r.colorHits.length) rec.col = r.colorHits; // [[speciesId|null, colour, ±1]]
+  if (r.obs && r.obs.waterTemp != null) rec.o = { wt: r.obs.waterTemp }; // measured water temperature
   return rec;
 }
 
@@ -41,7 +42,7 @@ export function mergeArchive(prev, reports, now = Date.now()) {
   const map = new Map();
   for (const x of (prev && prev.records) || []) if (x && x.id && x.d) map.set(x.id, x);
   for (const r of reports) if (r.id && r.date && r.date <= now + DAY) map.set(r.id, toRecord(r));
-  const records = [...map.values()].filter((x) => now - x.d <= KEEP_DAYS * DAY && (x.c.length || x.v != null || (x.col && x.col.length))).sort((a, b) => b.d - a.d);
+  const records = [...map.values()].filter((x) => now - x.d <= KEEP_DAYS * DAY && (x.c.length || x.v != null || (x.col && x.col.length) || x.o)).sort((a, b) => b.d - a.d);
   return { schema: ARCHIVE_SCHEMA, updated_at: new Date(now).toISOString(), records };
 }
 
