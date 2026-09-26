@@ -1,12 +1,15 @@
 {
   "name": "fishhunter",
-  "version": "16.0.0",
+  "version": "30.2.0",
   "private": true,
   "description": "Niigata / Nagano fishing intelligence PWA",
   "scripts": {
     "validate": "node tools/validate.mjs",
-    "test": "node tools/test-engine.mjs",
-    "check": "node tools/validate.mjs && node tools/test-engine.mjs",
+    "test": "node tools/test-engine.mjs && node tools/test-intel.mjs",
+    "test:ui": "node tools/test-ui.mjs",
+    "check": "node tools/validate.mjs && node tools/test-engine.mjs && node tools/test-intel.mjs",
+    "eval": "node tools/eval/backtest.mjs",
+    "health": "node tools/intel/health.mjs data",
     "serve": "python3 -m http.server 8765"
   }
 }
