@@ -215,6 +215,26 @@ export function extractColors(text) {
   return out.slice(0, 8);
 }
 
+/**
+ * Single-species logs that never name the fish ("釣果:41匹", "匹数 ?~10 最大(cm) 43", "釣 果:13 杯"):
+ * the source declares the species. → { count, max, waterTemp } (fields null when absent).
+ */
+export function extractTally(text) {
+  const t = normalize(text).replace(/\s+/g, ' ');
+  const num = (m, k = 1) => (m ? +m[k] : null);
+  let count = null;
+  // A leading "?~" / "3匹~" range start is skipped only when a ~ follows it (else "41匹" would read as 1).
+  const a = t.match(/釣\s?果\s*[:：]?\s*(?:(?:[?？]|\d{1,4})\s*(?:匹|杯|本)?\s*[~〜]\s*)?(\d{1,4})\s*(匹|杯|本|尾)/);
+  const b = t.match(/匹数\s*[:：]?\s*(?:(?:[?？]|\d{1,4})\s*[~〜]\s*)?(\d{1,4})/);
+  const c = t.match(/(?:[?？]|\d{1,4})\s*匹\s*[~〜]\s*(\d{1,4})\s*匹/);
+  const z = t.match(/釣\s?果\s*[:：]?\s*(?:なし|0\s*(?:匹|杯|本))/);
+  count = z ? 0 : num(a) ?? num(b) ?? num(c);
+  const max = num(t.match(/最大\s*(?:\(?cm\)?)?\s*[:：]?\s*(\d{2,3})\s*(?:cm)?/));
+  const wt = t.match(/水温\s*[:：]?\s*(\d{1,2}(?:\.\d)?)\s*(?:[~〜]\s*(\d{1,2}(?:\.\d)?))?\s*(?:℃|°C|度)?/);
+  const waterTemp = wt ? (wt[2] ? (+wt[1] + +wt[2]) / 2 : +wt[1]) : null;
+  return { count, max: max && max < 200 ? max : null, waterTemp: waterTemp != null && waterTemp > 0 && waterTemp < 35 ? waterTemp : null };
+}
+
 /** Which FishHunter spots does this text mention? spots: [{id, name, feedAliases}] */
 export function matchSpots(text, spots) {
   const t = normalize(text);

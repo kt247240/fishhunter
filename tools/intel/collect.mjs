@@ -12,7 +12,7 @@ import { loadEngine, buildDaybook, waterTempBias } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
 import { collectOfficial } from './official.mjs';
 import { dayPeak, calibrate } from './calibrate.mjs';
-import { extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+import { extractTally, extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
@@ -67,11 +67,20 @@ const SEA_ONLY = new Set(ctx.FH.SPECIES.filter((s) => s.habitat.every((h) => h =
 function toReport(src, it, extra = {}) {
   const full = `${it.title}\n${it.text}`;
   const catches = extra.catches || extractCatches(full);
+  // Single-species sources (ドーム船, bass rentals, eging logs) state counts without the fish name.
+  if (src.defaultSpecies && !extra.catches) {
+    const tl = extractTally(full);
+    const sp = ctx.FH.speciesById[src.defaultSpecies];
+    if (sp && tl.count != null && !catches.some((c) => c.sp === sp.id && !c.mention)) {
+      if (tl.count > 0) catches.push({ sp: sp.id, name: sp.name, alias: sp.name, count: tl.count, min: null, max: tl.max, method: null, mention: false });
+    }
+    if (tl.waterTemp != null && src.water !== 'sea') extra = Object.assign({}, extra, { obs: Object.assign({}, extra.obs || {}, { waterTemp: tl.waterTemp }) });
+  }
   const spots = [...new Set([...(src.spots || []), ...matchSpots(full, SPOTS)])];
   let area = areaOf(full, null) || (spots[0] && SPOTS.find((s) => s.id === spots[0]).area) || src.area || null;
   // An inland shop reporting a sea trip without naming the place: don't pin it to the shop's area.
   if (!areaOf(full, null) && !spots.length && INLAND.has(area) && catches.some((c) => SEA_ONLY.has(c.sp))) area = null;
-  const { catches: _c, ...rest } = extra;
+  const { catches: _c, ...rest } = extra; // (extra may carry obs from a tally above)
   // Shops sometimes report boat trips: keep them, but out of the shore statistics.
   const type = src.type !== 'boat' && BOAT_RE.test(full) ? 'boat' : src.type;
   return {
@@ -124,6 +133,18 @@ const PARSERS = {
     }).filter(Boolean);
   },
   // 野尻湖マリーナ: daily blocks "MM月DD日（曜）天候…水温 24℃…スモールマウス：30cm～46cm ？匹～6匹 コメント…"
+  // 鈴木釣具店 (新潟): one <section class="frame"> per report with a 釣りもの/大きさ/匹数/詳細 table.
+  suzuki(html, src) {
+    return html.split('<section class="frame">').slice(1, 16).map((b, i) => {
+      const d = b.match(/<time>(20\d{2})年(\d{1,2})月(\d{1,2})日/);
+      if (!d) return null;
+      const rows = [...b.matchAll(/<tr>\s*<th>([^<]*)<\/th>\s*<th>([^<]*)<\/th>\s*<th>([^<]*)<\/th>\s*<th class="details">([\s\S]*?)<\/th>/g)]
+        .map((m) => [m[1], m[2], m[3], stripHtml(m[4]).replace(/-{3,}/g, '')].map((x) => normalize(x).trim()).join(' '));
+      const comment = normalize(stripHtml((b.match(/<div class="choka_comment">([\s\S]*?)<\/div>/) || [])[1] || '')).replace(/【コメント】/, '').trim();
+      return { title: `${d[2]}/${d[3]} 鈴木釣具店 釣果`, url: `${src.url}#r${d[1]}${d[2].padStart(2, '0')}${d[3].padStart(2, '0')}-${i}`, date: Date.UTC(+d[1], +d[2] - 1, +d[3], 3), text: rows.join('\n') + '\n' + comment };
+    }).filter(Boolean);
+  },
+
   // 野尻湖マリーナ: one daily log per day (天候・水温・水質・平均釣果). `ym` = [year, month] of a past
   // calendar page (?yyyy=&mm=) when back-filling; each day gets its own URL so the archive keeps them apart.
   nojiriko(html, src, ym = null) {

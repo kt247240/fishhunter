@@ -7,7 +7,7 @@ import { calibrate, probability, fitLogistic } from './intel/calibrate.mjs';
 import { check as healthCheck } from './intel/health.mjs';
 import { parseLandings, landingsBySpecies, parseKaikyo, parseKyucho } from './intel/official.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
-import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
+import { extractTally, extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name); throw e; } };
@@ -259,6 +259,19 @@ test('data health: pier feeds down or empty are critical; missing API keys are n
   bad.official.errors = ['kaikyo: HTTP 500'];
   const r = healthCheck(bad);
   assert.equal(r.problems.length, 2); assert.match(r.problems.join(), /0件/);
+});
+
+test('single-species tallies: ドーム船, bass rental, eging log, 0 catch', () => {
+  let t = extractTally('釣果:41匹(ドーム船内とデッキ釣り ) 時間 : 7:00- 13:30 天候:雨 水温:21.2度');
+  assert.equal(t.count, 41); assert.equal(t.waterTemp, 21.2);
+  t = extractTally('コメント 数釣りは小型ばかり 最大(cm) 43 匹数 ?~10 リグ キャロ 水温 21.7~22');
+  assert.equal(t.count, 10); assert.equal(t.max, 43); assert.ok(Math.abs(t.waterTemp - 21.85) < 0.01);
+  t = extractTally('場 所:内海府方面 釣 果:13 杯 TOTAL :93杯 潮 汐:小潮');
+  assert.equal(t.count, 13);
+  t = extractTally('釣果 サイズ 水位 ?匹~215匹 小型多し 35m~37m');
+  assert.equal(t.count, 215);
+  assert.equal(extractTally('釣果:なし 渋い一日').count, 0);
+  assert.equal(extractTally('新しいロッドが入荷しました').count, null);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

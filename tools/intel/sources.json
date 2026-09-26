@@ -318,6 +318,130 @@
       "url": "https://kishinami.jp/resultplace/%E6%9D%91%E4%B8%8A%E5%B8%82/feed/"
     },
     {
+      "id": "tommy-teradomari",
+      "name": "つり具のトミー（寺泊）",
+      "type": "shop",
+      "area": "中越",
+      "spots": [
+        "teradomari"
+      ],
+      "mode": "rss",
+      "url": "https://fishing-tommy.com/info/feed?feed=rss"
+    },
+    {
+      "id": "suzuki-tsurigu",
+      "name": "鈴木釣具店（新潟）",
+      "type": "shop",
+      "area": "下越",
+      "spots": [],
+      "mode": "html",
+      "parser": "suzuki",
+      "url": "https://suzukitsurigu.com/blog.php"
+    },
+    {
+      "id": "sado-eging",
+      "name": "佐渡ヶ島エギング（釣行日報）",
+      "type": "blog",
+      "area": "佐渡",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://www.sadoeging.com/feed",
+      "defaultSpecies": "aori"
+    },
+    {
+      "id": "turiage",
+      "name": "釣り上げ.com",
+      "type": "blog",
+      "area": "上越",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://turiage.com/feed/"
+    },
+    {
+      "id": "marvelous-act",
+      "name": "Marvelous Act（新潟の岸釣り）",
+      "type": "blog",
+      "area": "下越",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://marvelousact.hatenablog.jp/rss"
+    },
+    {
+      "id": "kouyuu-nou",
+      "name": "こうゆう丸（能生）",
+      "type": "boat",
+      "area": "上越",
+      "spots": [
+        "nou-port"
+      ],
+      "mode": "rss",
+      "url": "https://blog2.kouyuu-ngt.com/feeds/posts/default?alt=rss"
+    },
+    {
+      "id": "ripple-seiro",
+      "name": "Anglers Guide RIPPLE（聖籠）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "niigata-east"
+      ],
+      "mode": "rss",
+      "url": "https://www.anglers-guide-ripple.com/feed/"
+    },
+    {
+      "id": "nojiri-freee",
+      "name": "野尻湖 バス釣り Freee",
+      "type": "official",
+      "area": "北信",
+      "spots": [
+        "nojiri"
+      ],
+      "mode": "rss",
+      "url": "https://nojiri-freee.com/feed/",
+      "defaultSpecies": "bass",
+      "water": "lake",
+      "deepPages": 8
+    },
+    {
+      "id": "suwako-lakehood",
+      "name": "わかさぎレイクフッド（諏訪湖）",
+      "type": "official",
+      "area": "南信",
+      "spots": [
+        "suwa"
+      ],
+      "mode": "rss",
+      "url": "https://suwako-wakasagi.jp/feed/",
+      "defaultSpecies": "wakasagi",
+      "water": "lake",
+      "deepPages": 8
+    },
+    {
+      "id": "hotorisou-nojiri",
+      "name": "ほとり荘（野尻湖 ワカサギ）",
+      "type": "official",
+      "area": "北信",
+      "spots": [
+        "nojiri"
+      ],
+      "mode": "rss",
+      "url": "https://hotorisou.com/feed/",
+      "defaultSpecies": "wakasagi",
+      "water": "lake",
+      "deepPages": 10
+    },
+    {
+      "id": "tenryu-gyokyo",
+      "name": "天竜川漁協（伊那）",
+      "type": "coop",
+      "area": "南信",
+      "spots": [
+        "tenryu"
+      ],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/tenryu-gyokyo/rss20.xml"
+    },
+    {
       "id": "youtube",
       "name": "YouTube（公開動画）",
       "type": "video",
