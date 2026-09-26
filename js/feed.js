@@ -11,6 +11,7 @@
   let hot = null;
   let book = null;
   let skill = null;
+  let official = null;
   const evCache = new Map();
 
   /** Long-term evidence (data/hotspots.json: 60 days of catch DAYS per spot × species × pier zone). */
@@ -58,8 +59,24 @@
     return { lead: L, wind: avg('wind'), wave: avg('wave'), days: skill.days };
   }
 
+  async function loadOfficial() {
+    try {
+      const r = await FH.diag.fetchWithTimeout('data/official.json', { cache: 'no-store' }, 10000);
+      const j = await r.json();
+      if (j && j.schema) official = j;
+    } catch (_) { /* optional */ }
+  }
+
+  /** 海況情報 layer means, when the survey is recent enough to describe instant t (≤ 45 days). */
+  function kaikyo(t) {
+    const k = official && official.kaikyo;
+    if (!k || !k.obs) return null;
+    const obsT = Date.UTC(k.year - (k.obs.to[0] > k.month ? 1 : 0), k.obs.to[0] - 1, k.obs.to[1]);
+    return Math.abs(t - obsT) <= 45 * DAY ? Object.assign({ obsT }, k) : null;
+  }
+
   async function load() {
-    const hp = Promise.all([loadHot(), loadBook(), loadSkill()]);
+    const hp = Promise.all([loadHot(), loadBook(), loadSkill(), loadOfficial()]);
     try { return await loadIntel(); } finally { await hp; }
   }
   async function loadIntel() {
@@ -280,6 +297,7 @@
     },
     target, hotRank, hotLoaded: () => !!hot,
     daybook: () => book,
+    official: () => official, kaikyo,
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,

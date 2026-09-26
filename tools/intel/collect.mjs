@@ -10,6 +10,7 @@ import vm from 'node:vm';
 import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
 import { loadEngine, buildDaybook } from './daybook.mjs';
 import { skillFor, LEADS } from './skill.mjs';
+import { collectOfficial } from './official.mjs';
 import { extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
@@ -443,6 +444,7 @@ async function main() {
   const hot = buildHotspots(archive, NOW, { speciesIds: ctx.FH.SPECIES.map((s) => s.id) });
   fs.writeFileSync(path.join(path.dirname(OUT), 'hotspots.json'), JSON.stringify(hot));
   try { await writeDaybook(archive, hot); } catch (e) { console.error('daybook:', e.message); }
+  try { const o = await collectOfficial(path.dirname(OUT), NOW, await previousArchive('official.json')); console.log('official: ' + (o.errors.length ? o.errors.join(' / ') : 'ok')); } catch (e) { console.error('official:', e.message); }
   console.log(`archive: ${archive.records.length} records (${HISTORY.length} back-filled) → hotspots for ${Object.keys(hot.spots).length} spots`);
   console.log(JSON.stringify({ out: OUT, reports: list.length, catches: list.reduce((n, r) => n + r.catches.length, 0), sources: health }, null, 1));
 }

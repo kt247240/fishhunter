@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import { dailyMax, drift, skillFor } from './intel/skill.mjs';
+import { parseLandings, landingsBySpecies, parseKaikyo } from './intel/official.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
@@ -208,6 +209,19 @@ test('forecast drift: daytime max per day, bias and MAE by lead', () => {
   assert.equal(k[3].bias, -1.5); assert.equal(k[3].mae, 1.5); assert.equal(k[3].n, 12);
   assert.equal(k[1], undefined);
   assert.equal(drift({ a: 1 }, { a: 2 }), null, 'too few days');
+});
+
+test('official: set-net landings CSV and 海況情報 text', () => {
+  const csv = ['定置網（単位：トン）,,,', ',マアジ,サバ類,イナダ,大ブリ,その他,計', '両津湾,1.4,0.4,0.1,0.0,2.3,4.2', '新潟,11.8,3.4,0.1,0.0,0.3,15.6', '糸魚川,4.4,0.1,0.4,0.0,1.0,5.9',
+    '計,17.6,3.9,0.6,0.0,3.6,25.7', '前年,26.7,19.3,3.6,0.0,8.4,58', '5年平均,32.1,12.1,8.9,0.0,15.7,68.8', ',,,', 'まき網（単位：トン）,,,'].join('\n');
+  const tab = parseLandings(csv);
+  assert.equal(tab.total['マアジ'], 17.6); assert.equal(tab.avg5['イナダ'], 8.9);
+  const by = landingsBySpecies(tab);
+  assert.equal(by.aji.t, 17.6); assert.equal(by.aji.areas['下越'], 11.8); assert.equal(by.aji.areas['佐渡'], 1.4); assert.equal(by.inada.t, 0.6);
+  const k = parseKaikyo('◎ ９月の沿岸水温（観測月日：8 月 24 日～27 日） ［水温］ 表層(0ｍ)、50ｍ層、100ｍ層の平均水温は それぞれ 28.6℃、21.3℃、15.4℃でした。 ［平年差］ 表層(0ｍ)は“かなり高め”、50ｍ層と 100ｍ層は“やや高め”でした。 ◎ 海の天気予報');
+  assert.equal(k.t0, 28.6); assert.equal(k.t50, 21.3); assert.equal(k.t100, 15.4);
+  assert.equal(k.anomaly.t0, 'かなり高め'); assert.equal(k.anomaly.t50, 'やや高め');
+  assert.deepEqual([...k.obs.from, ...k.obs.to], [8, 24, 8, 27]);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

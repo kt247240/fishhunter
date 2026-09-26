@@ -34,6 +34,9 @@ jobs:
           node tools/validate.mjs
           node tools/test-engine.mjs
           node tools/test-intel.mjs
+      - name: PDF text extractor for 海況情報 (non-blocking)
+        continue-on-error: true
+        run: pip install --quiet pdfminer.six
       - name: Collect catch intel (non-blocking)
         continue-on-error: true
         env:

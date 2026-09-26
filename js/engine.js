@@ -153,7 +153,10 @@
   /** Estimated temperature a few metres below a stratified summer surface (null when mixed). */
   function thermoDeep(spot, c) {
     if (spot.water !== 'sea' || c.waterTemp == null || c.month < 6 || c.month > 10) return null;
-    const drop = Math.max(0, Math.min(10, (c.waterTemp - 20) * 0.9)) * THERMO_K;
+    // Prefer the prefecture's latest survey (surface − 50 m) when it is recent; else a climatological guess.
+    const k = FH.feed && FH.feed.kaikyo ? FH.feed.kaikyo(c.t) : null;
+    const gap = k && k.t0 != null && k.t50 != null ? Math.max(0, k.t0 - k.t50) : Math.max(0, Math.min(10, (c.waterTemp - 20) * 0.9));
+    const drop = gap * THERMO_K;
     return drop >= 1 ? c.waterTemp - drop : null;
   }
 

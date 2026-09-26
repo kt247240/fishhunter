@@ -707,3 +707,17 @@ table.skill td small { color: var(--faint); }
 .science ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; line-height: 1.6; }
 .science li a { display: block; color: var(--muted); text-decoration: none; }
 .science li a:hover { text-decoration: underline; }
+
+/* ═════════════════ v27 OFFICIAL DATA ═════════════════ */
+.gov-card #gov { display: grid; gap: 16px; }
+.gv-temps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.gv-t { display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.gv-t b { font-size: 22px; color: var(--text); line-height: 1.1; }
+.gv-t em { font-style: normal; font-size: 11px; font-weight: 700; }
+.gv-t.hi em { color: var(--hot); } .gv-t.lo em { color: var(--accent); }
+.gv-river { position: relative; display: flex; align-items: flex-end; gap: 3px; height: 70px; padding: 4px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.gv-river span { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.gv-river span i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .85; }
+.gv-river span.fc i { opacity: .35; }
+.gv-river span.now i { background: var(--hot); opacity: 1; }
+.gv-med { position: absolute; left: 4px; right: 4px; height: 0; border-top: 1px dashed var(--muted); }

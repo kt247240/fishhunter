@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v26.0.0 SCIENCE';
+  const VERSION = 'v27.0.0 OPEN DATA';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -198,7 +198,52 @@
     renderRadar(sp, fish);
     renderTarget(sp, fish);
     renderLab(sp, fish);
+    renderOfficial(sp, fish);
     renderPicks();
+  }
+
+  /* 🏛 Official open data: prefecture sea survey, set-net landings, river discharge. */
+  function renderOfficial(sp, fish) {
+    const box = $('#govCard');
+    const O = FH.feed.official && FH.feed.official();
+    if (!O || sp.pref !== '新潟' || sp.water !== 'sea') { box.hidden = true; return; }
+    const name = shortName(fish.name);
+    const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : null);
+    let html = '';
+    const k = O.kaikyo;
+    if (k) {
+      const tone = (w) => (/高め/.test(w || '') ? 'hi' : /低め/.test(w || '') ? 'lo' : '');
+      const cell = (label, v, w) => `<div class="gv-t ${tone(w)}"><span>${label}</span><b class="num">${v.toFixed(1)}<small>℃</small></b><em>${esc(w || '')}</em></div>`;
+      html += `<section class="lab-sec"><h4 class="rd-h">🌡 沖の水温（${k.month}月号・${k.obs ? `${k.obs.from[0]}/${k.obs.from[1]}〜${k.obs.to[0]}/${k.obs.to[1]}観測` : ''}）</h4>
+        <div class="gv-temps">${cell('表層', k.t0, k.anomaly.t0)}${cell('水深50m', k.t50, k.anomaly.t50)}${cell('水深100m', k.t100, k.anomaly.t100)}</div>
+        ${k.t0 - k.t50 >= 5 ? `<p class="small">表層と水深50mの差が${(k.t0 - k.t50).toFixed(1)}℃。魚は表層を避けて少し深いタナにいることが多い時期です（スコアの水温にも反映）。</p>` : ''}</section>`;
+    }
+    const L = O.landings;
+    if (L && L.species) {
+      const rows = Object.entries(L.species).filter(([, v]) => v.avg5 > 0.5 || v.t > 0.5).sort((a, b) => b[1].t - a[1].t);
+      const mine = L.species[fish.id];
+      html += `<section class="lab-sec"><h4 class="rd-h">📦 定置網の水揚げ（${L.year}年${L.month}月・県全体） <small>沖にどれだけ魚が来ているかの目安</small></h4>
+        ${mine ? `<p class="tg-call">${esc(name)}：<b>${mine.t}トン</b>（5年平均の<b>${pct(mine.t, mine.avg5) ?? '—'}%</b>・前年の${pct(mine.t, mine.prev) ?? '—'}%）${mine.areas && mine.areas[sp.area] != null ? ` ／ ${esc(sp.area)} ${mine.areas[sp.area]}トン` : ''}</p>` : ''}
+        <ol class="tg-zones">${rows.map(([id, v], i) => { const p = pct(v.t, v.avg5); return `<li style="--i:${i}" class="${id === fish.id ? 'on' : ''}"><span class="tz-l">${esc(shortName((FH.speciesById[id] || { name: id }).name))}</span><span class="tz-bar"><i style="width:${Math.min(100, Math.max(4, (p || 0) / 2))}%"></i></span><span class="tz-v num">${p == null ? '—' : p + '%'}<em class="st-n">${v.t}t</em></span></li>`; }).join('')}</ol>
+        <p class="muted small">5年平均を100%とした比率（バーは200%で満杯）。月ごとの集計で、翌月に公表されます。</p></section>`;
+    }
+    const R = (O.rivers || []).find((r) => r.spots.includes(sp.id));
+    if (R && R.series && R.series.length) {
+      const today = new Date(state.now + 9 * 3600e3).toISOString().slice(0, 10);
+      const nowV = (R.series.filter(([d]) => d <= today).slice(-1)[0] || [])[1];
+      const mx = Math.max(...R.series.map(([, v]) => v), R.median * 2);
+      const ratio = nowV != null && R.median ? nowV / R.median : null;
+      html += `<section class="lab-sec"><h4 class="rd-h">🏞 ${esc(R.name)}の流量 <small>河口付近の濁り・塩分の目安（予測を含む）</small></h4>
+        <div class="gv-river">${R.series.map(([d, v]) => `<span class="${d > today ? 'fc' : d === today ? 'now' : ''}" title="${d}: ${v} m³/s"><i style="height:${Math.max(3, (v / mx) * 100)}%"></i></span>`).join('')}<b class="gv-med" style="bottom:${(R.median / mx) * 100}%"></b></div>
+        <p class="small">${nowV != null ? `いま約<b>${nowV} m³/s</b>（平常${R.median} m³/sの${ratio.toFixed(1)}倍）` : ''}${ratio >= 2 ? ' → <b>増水中</b>。河口付近は濁りと塩分低下の可能性（シーバス・クロダイは濁りの境目が狙い目、アオリイカ・キスには不利）' : ratio != null && ratio < 0.7 ? ' → 渇水気味' : ' → ほぼ平常'}。</p>
+        <p class="muted small">FishHunterの釣果日誌（直江津・東港）では、増水と釣果に一貫した関係は見られていません。スコアには入れず情報として表示しています。</p></section>`;
+    }
+    if (!html) { box.hidden = true; return; }
+    html += `<p class="muted small">出典：${(O.credits || []).map(esc).join(' ／ ')}。<a href="${esc((k && k.page) || (L && L.page) || 'https://www.pref.niigata.lg.jp/site/suisan-kenkyu/')}" target="_blank" rel="noopener">新潟県水産海洋研究所</a></p>`;
+    box.hidden = false;
+    $('#govScope').textContent = '公的オープンデータ';
+    $('#gov').innerHTML = html;
+    FH.motion.stagger($('#gov'));
   }
 
   /* 🧠 Original analyses from the daybook: days like today, season flow, crowding. */
