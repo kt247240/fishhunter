@@ -7,6 +7,8 @@
 
 const DAY = 86400e3;
 export const KEEP_DAYS = 400;
+// Bump when extraction changes enough that history should be re-read once (collector back-fills again).
+export const ARCHIVE_SCHEMA = 'fishhunter.archive/2';
 const jstDay = (t) => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
 
 /** Zone keys for a pier position: "m4:o" (400–499 m, outer side), "tip:i", "n2" (posts 21–30). */
@@ -29,7 +31,9 @@ export function zoneLabel(key) {
 /** One report → compact record (only catches that were actually reported caught). */
 export function toRecord(r) {
   const c = (r.catches || []).filter((x) => !x.mention).map((x) => [x.sp || x.name, x.count ?? null, x.max ?? null, x.method || null, zoneKeys(x.pos)]);
-  return { id: r.id, d: r.date, src: r.src, t: r.type, a: r.area || null, s: r.spots || [], tb: (r.time && r.time.buckets) || [], v: r.visitors ?? null, c };
+  const rec = { id: r.id, d: r.date, src: r.src, t: r.type, a: r.area || null, s: r.spots || [], tb: (r.time && r.time.buckets) || [], v: r.visitors ?? null, c };
+  if (r.colorHits && r.colorHits.length) rec.col = r.colorHits; // [[speciesId|null, colour, ±1]]
+  return rec;
 }
 
 /** Merge fresh reports into the previous archive (same id → fresh wins), drop old / empty ones. */
@@ -37,8 +41,8 @@ export function mergeArchive(prev, reports, now = Date.now()) {
   const map = new Map();
   for (const x of (prev && prev.records) || []) if (x && x.id && x.d) map.set(x.id, x);
   for (const r of reports) if (r.id && r.date && r.date <= now + DAY) map.set(r.id, toRecord(r));
-  const records = [...map.values()].filter((x) => now - x.d <= KEEP_DAYS * DAY && (x.c.length || x.v != null)).sort((a, b) => b.d - a.d);
-  return { schema: 'fishhunter.archive/1', updated_at: new Date(now).toISOString(), records };
+  const records = [...map.values()].filter((x) => now - x.d <= KEEP_DAYS * DAY && (x.c.length || x.v != null || (x.col && x.col.length))).sort((a, b) => b.d - a.d);
+  return { schema: ARCHIVE_SCHEMA, updated_at: new Date(now).toISOString(), records };
 }
 
 /** Earliest record date per source (to decide whether a source still needs its history back-filled). */
@@ -64,6 +68,12 @@ export function buildHotspots(archive, now = Date.now(), { days = 60, speciesIds
     for (const sid of [...x.s, ...(x.a ? ['@' + x.a] : [])]) {
       const S = spots[sid] || (spots[sid] = { days: new Set(), from: x.d, to: x.d, srcs: new Set(), sp: {} });
       S.days.add(day); S.from = Math.min(S.from, x.d); S.to = Math.max(S.to, x.d); S.srcs.add(x.src);
+      for (const [csp, name, sign] of x.col || []) {
+        const k = csp || '_any';
+        const C = S.col || (S.col = {});
+        const b = (C[k] || (C[k] = {}))[name] || (C[k][name] = [0, 0]);
+        b[sign > 0 ? 0 : 1]++;
+      }
       const seenHere = new Set();
       for (const [k, cnt, max, method, zones] of x.c) {
         const P = S.sp[k] || (S.sp[k] = { days: new Set(), d30: new Set(), d14: new Set(), d7: new Set(), fish: 0, max: null, last: 0, methods: {}, tb: {}, zones: {} });
@@ -94,7 +104,9 @@ export function buildHotspots(archive, now = Date.now(), { days = 60, speciesIds
       };
       if (sid[0] !== '@' && (!speciesIds || speciesIds.includes(k))) (rank[k] || (rank[k] = [])).push({ spot: sid, d30: P.d30.size, d7: P.d7.size, days: P.days.size, reportDays: S.days.size, last: P.last, max: P.max });
     }
-    out[sid] = { reportDays: S.days.size, from: S.from, to: S.to, sources: S.srcs.size, sp };
+    const colors = {};
+    for (const [k, m] of Object.entries(S.col || {})) colors[k] = Object.entries(m).map(([n, [p, q]]) => [n, p, q]).sort((a, b) => (b[1] - b[2]) - (a[1] - a[2]) || b[1] - a[1]);
+    out[sid] = { reportDays: S.days.size, from: S.from, to: S.to, sources: S.srcs.size, sp, ...(Object.keys(colors).length ? { colors } : {}) };
   }
   for (const k of Object.keys(rank)) rank[k] = rank[k].filter((r) => r.d30 > 0).sort((a, b) => b.d30 - a.d30 || b.d7 - a.d7 || b.last - a.last).slice(0, 10);
   return { schema: 'fishhunter.hotspots/1', generated_at: new Date(now).toISOString(), days, spots: out, rank };

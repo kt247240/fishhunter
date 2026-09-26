@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
-import { extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
+import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name); throw e; } };
@@ -102,6 +102,14 @@ test('a size after an unlisted fish or the next position is not given to the pre
   assert.equal(cs.find((c) => c.alias === 'ハモ').max, 62);
   assert.equal(extractCatches('アジ サイズ30cm 5匹')[0].max, 30);
 });
+test('colours: winners vs losers around よりも, species via エギ, no 色んな/色々', () => {
+  assert.equal(JSON.stringify(extractColors('今日はピンク系やオレンジ系よりも、ブルー系や暗めのカラーのエギへの反応が良かったようです')),
+    JSON.stringify([['aori', 'ピンク', -1], ['aori', 'オレンジ', -1], ['aori', '青', 1], ['aori', 'ダーク系', 1]]));
+  assert.equal(extractColors('今日はピンク系やオレンジ系よりも、ブルー系や暗めのカラーの\n\nエギへの反応が良かったようです').length, 4);
+  assert.equal(extractColors('朝からカワハギやシマダイなど色々な魚が釣れて賑わい').length, 0);
+  assert.equal(extractColors('青物が釣れています。黒鯛もヒット').length, 0);
+  assert.equal(extractColorNotes('色んな魚が釣れて楽しい一日。赤金のエギに反応が良かった').length, 1);
+});
 test('hopes, targets, sightings and blanks are not catches', () => {
   const names = (t) => extractCatches(t).map((c) => c.alias).join(',');
   assert.equal(names('回遊魚が釣れているので、青物が釣れるかもしれませんので期待大ですね'), '');
@@ -140,6 +148,9 @@ test('archive: zones, merge, and evidence counted in days', () => {
   assert.equal(P.d14, 1);
   assert.equal(P.zones[0].z, 'm6:i'); assert.equal(P.zones[0].days, 2);
   assert.equal(h.rank.aji[0].spot, 'naoetsu');
+  const withCol = mergeArchive(arc, [Object.assign(rep('e', 1, []), { colorHits: [['aori', '青', 1], ['aori', 'ピンク', -1]] })], now);
+  const hc = buildHotspots(withCol, now);
+  assert.equal(JSON.stringify(hc.spots.naoetsu.colors.aori), JSON.stringify([['青', 1, 0], ['ピンク', 0, 1]]));
 });
 
 test('insight: analogs prefer same season + similar sea; season flow; crowd', () => {

@@ -181,8 +181,38 @@ function hoursOf(t) {
 export function extractColorNotes(text) {
   const t = normalize(text).replace(/\n+/g, '');
   return t.split(/。|!|！/).map((s) => s.trim())
-    .filter((s) => /(カラー|色|系)/.test(s) && /(反応|釣れ|ヒット|良|当たり|効)/.test(s) && s.length <= 120)
+    .map((s) => [s, s.replace(/色[んいな々]|色々|景色|特色|黄色線|青物|黒鯛|青空|白波/g, '')])
+    .filter(([s, c]) => COLOR_CTX.test(c) && POS.test(c) && s.length <= 120 && COLOR_RE.test(c)).map(([s]) => s)
     .slice(0, 3);
+}
+
+// Lure / egi colours, normalised to a small set of families.
+const COLORS = [
+  ['ピンク', /ピンク/], ['オレンジ', /オレンジ/], ['赤', /(?<!赤)赤(?!金)|レッド/], ['金', /赤金|金テープ|ゴールド|(?<![赤])金(?!曜)/], ['銀', /銀|シルバー|ホロ/],
+  ['緑', /緑|グリーン|オリーブ/], ['青', /(?<!青)青(?!物|空|イソメ)|ブルー/], ['紫', /紫|パープル/], ['ケイムラ', /ケイムラ|UV/], ['夜光', /グロー|夜光|蓄光/],
+  ['チャート', /チャート/], ['白', /白|ホワイト/], ['黒', /黒(?!鯛)|ブラック/], ['茶', /茶|ブラウン|マーブル/], ['ダーク系', /暗め|ダーク|地味/], ['明るい系', /明るめ|派手|アピール系/], ['ナチュラル', /ナチュラル|イワシカラー|アジカラー/]
+];
+const COLOR_RE = new RegExp(COLORS.map(([, re]) => re.source).join('|'));
+const COLOR_CTX = /カラー|色|系|エギ|ジグ|ルアー|ワーム|ミノー|テープ/;
+const POS = /反応が?(良|よ)|釣れ|ヒット|当たり|効い|好調|実績|強い/;
+
+/**
+ * Structured colour evidence: [[speciesId|null, colour, +1|-1]].
+ * "ピンク系やオレンジ系よりも、ブルー系や暗めのカラーのエギへの反応が良かった" → ピンク −1, オレンジ −1, 青 +1, ダーク系 +1 (aori, via エギ).
+ */
+export function extractColors(text) {
+  const out = [];
+  const t = normalize(text).replace(/\n+/g, ''); // blog HTML breaks lines mid-sentence
+  for (const raw of t.split(/。|!|！|？|\?/)) {
+    const sen = raw.replace(/色[んいな々]|色々|景色|特色|黄色線|青物|黒鯛|青空|白波/g, '');
+    if (sen.length > 140 || !COLOR_CTX.test(sen) || !POS.test(sen) || !COLOR_RE.test(sen)) continue;
+    const hit = [...raw.matchAll(SPECIES_RE)].map((m) => byAlias[m[0]].id).find(Boolean);
+    const sp = hit || (/エギ/.test(sen) ? 'aori' : null);
+    const cut = sen.search(/よりも|より(?!良|多)/);
+    const parts = cut >= 0 ? [[sen.slice(0, cut), -1], [sen.slice(cut), 1]] : [[sen, 1]];
+    for (const [part, sign] of parts) for (const [name, re] of COLORS) if (re.test(part) && !out.some((x) => x[1] === name)) out.push([sp, name, sign]);
+  }
+  return out.slice(0, 8);
 }
 
 /** Which FishHunter spots does this text mention? spots: [{id, name, feedAliases}] */

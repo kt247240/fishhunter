@@ -7,9 +7,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { mergeArchive, buildHotspots, coverage } from './archive.mjs';
+import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
 import { loadEngine, buildDaybook } from './daybook.mjs';
-import { extractCatches, extractTime, extractColorNotes, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
+import { extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'tools/intel/sources.json'), 'utf8'));
@@ -76,7 +76,7 @@ function toReport(src, it, extra = {}) {
     src: src.id, srcName: src.name, type,
     title: snippet(it.title, 60), url: it.url, date: it.date,
     area, spots, text: snippet(it.text, 160),
-    catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text),
+    catches, time: extractTime(it.title, it.text), colors: extractColorNotes(it.text), colorHits: extractColors(it.title + '\n' + it.text),
     notices: src.type === 'coop' || src.type === 'official' ? extractNotices(it.title, it.text) : [],
     ...(src.type === 'official' && extractVisitors(it.text) != null ? { visitors: extractVisitors(it.text) } : {}),
     ...rest
@@ -386,7 +386,7 @@ async function main() {
   const reports = [];
   const health = [];
   const prevArchive = await previousArchive();
-  ARCHIVE_COVERAGE = coverage(prevArchive);
+  ARCHIVE_COVERAGE = prevArchive.schema === ARCHIVE_SCHEMA ? coverage(prevArchive) : {}; // older schema → re-read history once
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {

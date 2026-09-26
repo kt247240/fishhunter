@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v25.1.0 MIGRATION';
+  const VERSION = 'v25.2.0 COLORS';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -332,6 +332,10 @@
         html += `<p class="tg-call">👉 実績の多い釣り方は <b>${esc(method)}</b>${when ? ` ・ ${when}` : ''}</p>`;
       }
       if (p.methods && p.methods.length > 1) html += `<div class="chips">${p.methods.map(([m, n]) => `<span class="chip">${esc(m)} ${n}回</span>`).join('')}</div>`;
+      if (T.colors && T.colors.length) {
+        const n = T.colors.reduce((a, c) => a + c[1] + c[2], 0);
+        html += `<div class="tg-colors"><span class="rd-h">🎨 カラーの実績</span>${T.colors.slice(0, 6).map(([c, pos, neg]) => `<span class="chip ${pos > neg ? 'ev' : pos < neg ? 'neg' : ''}">${esc(c)} ${pos ? '👍' + pos : ''}${neg ? ' 👎' + neg : ''}</span>`).join('')}${n < 3 ? '<span class="muted small">（まだ件数が少ない参考値）</span>' : ''}</div>`;
+      }
       html += `<p class="muted small">根拠：${esc(T.label)}の公開釣果 ${T.reportDays}日分（${md(T.from)}〜${md(T.to)}・${T.sources}ソース）。匹数ではなく「釣れた日数」で数えています。</p>`;
     } else if (T) {
       html += `<p class="muted small">${esc(T.label)}では直近${T.days}日（報告${T.reportDays}日分）に${esc(name)}の釣果報告がありません。下の実績のある釣り場も検討を。</p>`;

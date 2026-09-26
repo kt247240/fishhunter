@@ -222,13 +222,14 @@
   function target(spot, sp) {
     if (!hot) return null;
     const S = hot.spots[spot.id];
-    if (S && S.sp[sp.id] && S.reportDays >= 3) return pack('spot', spot.name, S, S.sp[sp.id]);
+    if (S && S.sp[sp.id] && S.reportDays >= 3) return pack('spot', spot.name, S, S.sp[sp.id], sp);
     const A = hot.spots['@' + spot.area];
-    if (A && A.sp[sp.id]) return pack('area', spot.area + 'エリア', A, A.sp[sp.id]);
-    return S && S.reportDays >= 5 ? pack('spot', spot.name, S, null) : null;
+    if (A && A.sp[sp.id]) return pack('area', spot.area + 'エリア', A, A.sp[sp.id], sp);
+    return S && S.reportDays >= 5 ? pack('spot', spot.name, S, null, sp) : null;
   }
-  function pack(scope, label, S, p) {
-    return { scope, label, reportDays: S.reportDays, from: S.from, to: S.to, sources: S.sources, days: hot.days, p, rate: p ? p.days / Math.max(1, S.reportDays) : 0 };
+  function pack(scope, label, S, p, sp) {
+    const colors = (S.colors && S.colors[sp.id]) || null;
+    return { scope, label, reportDays: S.reportDays, from: S.from, to: S.to, sources: S.sources, days: hot.days, p, colors, rate: p ? p.days / Math.max(1, S.reportDays) : 0 };
   }
   /** Spots ranked by days with this species reported caught (last 30 days). */
   function hotRank(sp) {
