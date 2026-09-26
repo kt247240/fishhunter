@@ -27,7 +27,9 @@ export const SPECIES = [
 ];
 // Non-target species still worth counting ("what is biting").
 export const OTHER = ['チダイ', 'イシダイ', 'シマダイ', 'オキザヨリ', 'サヨリ', 'カマス',
-  'タチウオ', 'カンパチ', 'ハゼ', 'カレイ', 'ホッケ', 'ヤリイカ', 'スルメイカ', 'マイカ', 'ヒイカ', 'コウイカ', 'ヘラブナ', 'ウグイ', 'ナマズ', 'ソウダガツオ'];
+  'タチウオ', 'カンパチ', 'ハゼ', 'カレイ', 'ホッケ', 'ヤリイカ', 'スルメイカ', 'マイカ', 'ヒイカ', 'コウイカ', 'ヘラブナ', 'ウグイ', 'ナマズ', 'ソウダガツオ', 'ハモ', 'ヒイラギ', 'フグ', 'ボラ', 'エイ', 'ダツ', 'ベラ', 'キュウセン', 'メッキ', 'カンパチ'];
+// A size right after some other katakana word ("ハモ62cm") belongs to that unlisted fish, not the one before.
+const FOREIGN_SIZE = /(?<![ァ-ヶー])(?!サイズ|マックス|キロ|センチ|ポツポツ|ボチボチ)[ァ-ヶー]{2,}(?=\s*\d{1,3}(?:\.\d)?\s*cm)/i;
 
 const METHODS = [
   ['エギング', /エギング|エギ(?!ン)/], ['ショアジギング', /ショアジギ|メタルジグ|ジグ(?!サビキ|単)/], ['ジグサビキ', /ジグサビキ/],
@@ -87,7 +89,7 @@ function caughtAfter(rest, before) {
 function segments(t) {
   return t
     .split(/\n+|。|!|！|★|【|】|※/)
-    .flatMap((s) => s.split(/\s(?=\d{2,3}m\s)/))
+    .flatMap((s) => s.split(/\s(?=\d{2,3}m(?:\s|内側|外側))/))
     .flatMap((s) => s.split(TIP_SPLIT))
     .map((s) => s.trim())
     .filter((s) => s.length >= 2);
@@ -120,7 +122,9 @@ export function extractCatches(text) {
     const segPos = positionOf(seg.slice(0, hits[0].index)) || null;
     const verb = CATCH_VERB.test(seg);
     hits.forEach((h, i) => {
-      const tail = seg.slice(h.index + h.alias.length, i + 1 < hits.length ? hits[i + 1].index : seg.length);
+      let tail = seg.slice(h.index + h.alias.length, i + 1 < hits.length ? hits[i + 1].index : seg.length);
+      const foreign = tail.match(FOREIGN_SIZE);
+      if (foreign) tail = tail.slice(0, foreign.index);
       const size = tail.match(/(?:(\d{1,3}(?:\.\d)?)\s*~\s*)?(\d{1,3}(?:\.\d)?)\s*cm/i);
       const cnt = tail.match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
       if (!size && !cnt && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) return; // a mere mention ("〜が待っています", "〜狙い", "〜かも")

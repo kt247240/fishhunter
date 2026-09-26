@@ -629,3 +629,28 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
 .map-hour { font-size: 12.5px; font-weight: 800; min-width: 88px; text-align: center; }
 #btnWind.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .wind-layer { position: absolute; inset: 0; z-index: 450; pointer-events: none; }
+
+/* ═════════════════ v24 TARGET (evidence-backed) ═════════════════ */
+.target-card #target { display: grid; gap: 12px; }
+.tg-head { display: grid; gap: 8px; }
+.tg-rate { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; font-size: 13px; }
+.tg-rate > b { font-size: 40px; line-height: 1; font-weight: 900; color: var(--accent); letter-spacing: -.02em; }
+.tg-rate > b small { font-size: 16px; margin-left: 1px; }
+.tg-trend { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--muted); }
+.tg-trend span { padding: 3px 9px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); }
+.tg-trend b { color: var(--text); }
+.tg-call { margin: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); font-size: 14px; line-height: 1.6; }
+.tg-zones, .tg-rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tg-zones li, .tg-rank li { display: grid; grid-template-columns: minmax(96px, 38%) 1fr auto; gap: 10px; align-items: center; font-size: 13px; min-height: 30px; }
+.tg-rank li { grid-template-columns: 22px minmax(90px, 36%) 1fr auto; padding: 6px 10px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; min-height: 44px; }
+.tg-rank li:hover { border-color: var(--line-2); }
+.tg-rank li.on { border-color: var(--accent); box-shadow: var(--glow); }
+.tr-no { font-weight: 900; color: var(--muted); }
+.tr-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-name small { margin-left: 6px; color: var(--muted); font-weight: 400; font-size: 11px; }
+.tz-l { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tz-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.tz-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--hot), var(--accent)); animation: grow 1s cubic-bezier(.2, .8, .2, 1) both; transform-origin: left; animation-delay: calc(var(--i, 0) * 70ms + .1s); }
+.tz-v { font-weight: 800; text-align: right; white-space: nowrap; }
+.tz-v em { font-style: normal; font-size: 10.5px; font-weight: 700; margin-left: 6px; padding: 1px 6px; border-radius: 6px; color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); }
+.chip.ev { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }

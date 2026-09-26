@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { mergeArchive, buildHotspots, coverage } from './archive.mjs';
 import { extractCatches, extractTime, extractColorNotes, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
@@ -83,16 +84,24 @@ function toReport(src, it, extra = {}) {
 // Keep reports that carry information and are inside Niigata / Nagano.
 const useful = (r) => (r.catches.length || r.notices.length || r.obs) && (r.area || r.spots.length);
 
+// Reports older than MAX_AGE found while back-filling: archive only (not in intel.json).
+const HISTORY = [];
+let ARCHIVE_COVERAGE = {};
+
 async function collectRss(src) {
   const items = [];
-  for (let page = 1; page <= (src.pages || 1); page++) {
+  // A source with deepPages is paged further back once, until the archive holds ~45 days of it.
+  const deep = src.deepPages && !(ARCHIVE_COVERAGE[src.id] <= NOW - 45 * DAY);
+  const pages = deep ? src.deepPages : src.pages || 1;
+  for (let page = 1; page <= pages; page++) {
     const url = page === 1 ? src.url : src.url + (src.url.includes('?') ? '&' : '?') + 'paged=' + page;
     const r = await get(url, 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5');
     if (!r.ok) { if (page === 1) throw new Error('HTTP ' + r.status); break; }
     items.push(...parseFeed(await r.text()));
-    if (page < (src.pages || 1)) await sleep(1500);
+    if (page < pages) await sleep(1500);
   }
   const tf = src.titleFilter ? new RegExp(src.titleFilter) : null;
+  if (deep) HISTORY.push(...items.filter((it) => it.date && NOW - it.date > MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful));
   return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && (!tf || tf.test(it.title))).map((it) => toReport(src, it)).filter(useful);
 }
 
@@ -324,9 +333,20 @@ function observations(list) {
   return out;
 }
 
+async function previousArchive() {
+  const local = path.join(path.dirname(OUT), 'archive.json');
+  const url = process.env.PREV_INTEL_URL && process.env.PREV_INTEL_URL.replace(/intel\.json$/, 'archive.json');
+  if (url) {
+    try { const r = await get(url + '?t=' + Date.now(), 'application/json'); if (r.ok) return await r.json(); } catch (_) { /* first run */ }
+  }
+  try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (_) { return { records: [] }; }
+}
+
 async function main() {
   const reports = [];
   const health = [];
+  const prevArchive = await previousArchive();
+  ARCHIVE_COVERAGE = coverage(prevArchive);
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
@@ -351,6 +371,12 @@ async function main() {
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(out));
+  // Long-term evidence: rolling archive (carried over via the live site) → hotspots.
+  const archive = mergeArchive(prevArchive, [...list, ...HISTORY], NOW);
+  fs.writeFileSync(path.join(path.dirname(OUT), 'archive.json'), JSON.stringify(archive));
+  const hot = buildHotspots(archive, NOW, { speciesIds: ctx.FH.SPECIES.map((s) => s.id) });
+  fs.writeFileSync(path.join(path.dirname(OUT), 'hotspots.json'), JSON.stringify(hot));
+  console.log(`archive: ${archive.records.length} records (${HISTORY.length} back-filled) → hotspots for ${Object.keys(hot.spots).length} spots`);
   console.log(JSON.stringify({ out: OUT, reports: list.length, catches: list.reduce((n, r) => n + r.catches.length, 0), sources: health }, null, 1));
 }
 

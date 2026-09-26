@@ -13,7 +13,8 @@
       "mode": "rss",
       "url": "https://happyfishing-n.jp/feed/",
       "page": "https://happyfishing-n.jp/category/catch/",
-      "pages": 3
+      "pages": 3,
+      "deepPages": 20
     },
     {
       "id": "happyfishing-higashi",
@@ -26,7 +27,8 @@
       "mode": "rss",
       "url": "https://happyfishing.jp/feed/",
       "page": "https://happyfishing.jp/category/catch/",
-      "pages": 3
+      "pages": 3,
+      "deepPages": 20
     },
     {
       "id": "johshuya-joetsu",

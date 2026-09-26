@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v23.0.0 ACCURACY';
+  const VERSION = 'v24.0.0 TARGET';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -196,7 +196,59 @@
     renderChart(sp, fish, now);
     renderHero(sp, fish, c, cur, wins, now);
     renderRadar(sp, fish);
+    renderTarget(sp, fish);
     renderPicks();
+  }
+
+  /* 🎯 Evidence-backed target: how often it was caught here, where on the pier, how — counted in days. */
+  function renderTarget(sp, fish) {
+    const box = $('#targetCard');
+    const T = FH.feed.target ? FH.feed.target(sp, fish) : null;
+    const rk = FH.feed.hotRank ? FH.feed.hotRank(fish) : [];
+    if (!T && !rk.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const name = shortName(fish.name);
+    $('#targetScope').textContent = `${name} ・ 直近${(T && T.days) || 60}日の実績`;
+    let html = '';
+    if (T && T.p) {
+      const p = T.p;
+      const pct = Math.round(T.rate * 100);
+      const z = p.zones || [];
+      const zmax = Math.max(1, ...z.map((x) => x.days));
+      const tb = p.tb || {};
+      const am = tb['朝'] || 0, pm = Math.max(tb['昼'] || 0, tb['夕'] || 0);
+      const when = am >= pm * 1.5 && am >= 4 ? '午前に多い' : pm >= am * 1.5 && pm >= 4 ? '午後に多い' : '';
+      const method = p.methods && p.methods[0] ? p.methods[0][0] : '';
+      const best = z[0];
+      html += `<div class="tg-head">
+          <div class="tg-rate"><b class="num">${T.scope === 'spot' ? pct + '<small>%</small>' : p.days + '<small>日</small>'}</b>
+            <span>${T.scope === 'spot' ? `報告のあった${T.reportDays}日のうち <b>${p.days}日</b> で${esc(name)}の釣果` : `${esc(T.label)}で${esc(name)}の釣果が報告された日（釣り場名なしの報告を含む）`}</span></div>
+          <div class="tg-trend"><span>直近14日 <b class="num">${p.d14}</b>日</span><span>直近7日 <b class="num">${p.d7}</b>日</span>${p.max ? `<span>最大 <b class="num">${p.max}</b>cm</span>` : ''}</div>
+        </div>`;
+      if (best) {
+        html += `<p class="tg-call">👉 狙うなら <b>${esc(best.label)}</b>${method ? ` × <b>${esc(method)}</b>` : ''}${when ? ` ・ ${when}` : ''}
+          <span class="muted small">（${best.days}日で実績${best.d14 ? `・直近14日でも${best.d14}日` : ''}）</span></p>
+          <ol class="tg-zones">${z.slice(0, 5).map((x, i) => `<li style="--i:${i}"><span class="tz-l">${esc(x.label)}</span><span class="tz-bar"><i style="width:${Math.max(6, (x.days / zmax) * 100)}%"></i></span><span class="tz-v num">${x.days}日${x.d14 ? `<em>直近${x.d14}</em>` : ''}</span></li>`).join('')}</ol>`;
+      } else if (method) {
+        html += `<p class="tg-call">👉 実績の多い釣り方は <b>${esc(method)}</b>${when ? ` ・ ${when}` : ''}</p>`;
+      }
+      if (p.methods && p.methods.length > 1) html += `<div class="chips">${p.methods.map(([m, n]) => `<span class="chip">${esc(m)} ${n}回</span>`).join('')}</div>`;
+      html += `<p class="muted small">根拠：${esc(T.label)}の公開釣果 ${T.reportDays}日分（${md(T.from)}〜${md(T.to)}・${T.sources}ソース）。匹数ではなく「釣れた日数」で数えています。</p>`;
+    } else if (T) {
+      html += `<p class="muted small">${esc(T.label)}では直近${T.days}日（報告${T.reportDays}日分）に${esc(name)}の釣果報告がありません。下の実績のある釣り場も検討を。</p>`;
+    }
+    if (rk.length) {
+      const top = rk.slice(0, 6);
+      html += `<h4 class="rd-h">📊 ${esc(name)}が実際に釣れている釣り場 <small>直近30日・釣果のあった日数</small></h4>
+        <ol class="tg-rank">${top.map((r, i) => `<li class="${r.spotId === sp.id ? 'on' : ''}" data-hot-spot="${r.spotId}" style="--i:${i}" tabindex="0" role="button">
+          <span class="tr-no num">${i + 1}</span><span class="tr-name">${esc(r.spot.name)}<small>${esc(r.spot.area)}</small></span>
+          <span class="tz-bar"><i style="width:${Math.max(6, (r.d30 / 30) * 100)}%"></i></span>
+          <span class="tz-v num">${r.d30}日${r.d7 ? `<em>今週${r.d7}</em>` : ''}</span></li>`).join('')}</ol>
+        <p class="muted small">公開釣果を出している釣り場ほど上位に出やすい点に注意（報告のない釣り場＝釣れない、ではありません）。</p>`;
+    }
+    $('#target').innerHTML = html;
+    $('#targetStamp').textContent = '';
+    FH.motion.stagger($('#target'));
   }
 
 
@@ -395,6 +447,12 @@
       <div class="bs-axis">${cells.map((p) => { const h = FH.astro.jstParts(new Date(p.t)).h; return h === 0 ? `<span style="--x:${cells.indexOf(p)}">${md(p.t)}</span>` : ''; }).join('')}</div>`;
   }
 
+  /** "📊 実績 18/30日" badge when this exact spot has a catch record for the species. */
+  function pickEvidence(p) {
+    const T = FH.feed.target ? FH.feed.target(p.spot, p.sp) : null;
+    return T && T.scope === 'spot' && T.p && T.p.d30 ? `<span class="chip ev">📊 実績 ${T.p.d30}/30日</span>` : '';
+  }
+
   function renderPicks() {
     const P = FH.prefs.get();
     const mine = P.scope === 'mine' && FH.prefs.hasPersonal();
@@ -414,7 +472,7 @@
           <span class="sp">${esc(p.sp.name)}</span>
           ${ring(p.win.peak, 64)}
           <span class="when">${range(p.win.start, p.win.end, state.now)}</span>
-          <span class="tags">${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
+          <span class="tags">${pickEvidence(p)}${p.win.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</span>
         </button>`).join('') : '<div class="empty">条件の良い候補が見つかりません（荒天・シーズンオフ）</div>';
       FH.motion.countUp($('#topPicks'));
       renderWeekend(mine, weekend);
@@ -851,6 +909,11 @@
     $('#spotPick').addEventListener('change', (e) => select(e.target.value, null, { focusMap: true }));
     $('#huntTarget').addEventListener('change', (e) => select(null, e.target.value));
     $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { show(b.dataset.tab); g.scrollTo({ top: 0 }); } });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const hs = e.target.closest && e.target.closest('[data-hot-spot]');
+      if (hs) { e.preventDefault(); hs.click(); }
+    });
     document.addEventListener('click', (e) => {
       const go = e.target.closest('[data-goto]');
       if (go) { show(go.dataset.goto); g.scrollTo({ top: 0 }); return; }
@@ -858,6 +921,8 @@
       if (card) { select(card.dataset.spot, card.dataset.sp, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const bc = e.target.closest('.bs-cell');
       if (bc && chart) { chart.focus(+bc.dataset.ci); return; }
+      const hs = e.target.closest('[data-hot-spot]');
+      if (hs) { select(hs.dataset.hotSpot, species().id, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const rsp = e.target.closest('[data-rsp]');
       if (rsp) { select(null, rsp.dataset.rsp); return; }
       const wk = e.target.closest('.wk-row');

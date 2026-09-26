@@ -1,5 +1,6 @@
 // Catch-intel extractor tests (synthetic samples in the formats seen in public feeds).
 import assert from 'node:assert/strict';
+import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
 let passed = 0;
@@ -92,6 +93,13 @@ test('Instagram hashtag media → catches with permalink, old/boat posts dropped
   assert.equal(r[0].url, 'https://www.instagram.com/p/AAA/');
   assert.equal(r[0].catches[0].sp, 'aori'); assert.equal(r[0].catches[0].count, 3);
 });
+test('a size after an unlisted fish or the next position is not given to the previous fish', () => {
+  const cs = extractCatches('15時過ぎから アジが550m~先端内側で釣れだしてきた 260m内側 ハモ62cm 遠投カゴ釣り 355m内側 サバ3匹 ~34cm');
+  const aji = cs.find((c) => c.sp === 'aji');
+  assert.ok(!aji || aji.max == null, JSON.stringify(aji));
+  assert.equal(cs.find((c) => c.alias === 'ハモ').max, 62);
+  assert.equal(extractCatches('アジ サイズ30cm 5匹')[0].max, 30);
+});
 test('hopes, targets, sightings and blanks are not catches', () => {
   const names = (t) => extractCatches(t).map((c) => c.alias).join(',');
   assert.equal(names('回遊魚が釣れているので、青物が釣れるかもしれませんので期待大ですね'), '');
@@ -109,6 +117,27 @@ test('hopes, targets, sightings and blanks are not catches', () => {
 test('a bare mention is dropped when the same report lists that fish with a size/count', () => {
   const cs = extractCatches('アオリイカは昨日に続き好調で釣れています。\nアオリイカ 12~17cm 44杯 47番 エギング');
   assert.equal(cs.length, 1); assert.equal(cs[0].count, 44);
+});
+
+test('archive: zones, merge, and evidence counted in days', () => {
+  assert.deepEqual([...zoneKeys({ m: 460, side: '外側' })], ['m4:o']);
+  assert.equal(zoneKeys({ no: [3, 8, 46] }).join(), 'n0,n4');
+  assert.equal(zoneLabel('m4:o'), '400〜499m 外側'); assert.equal(zoneLabel('tip:i'), '先端 内側'); assert.equal(zoneLabel('n4'), '41〜50番');
+  const now = Date.parse('2026-09-26T12:00:00+09:00');
+  const rep = (id, daysAgo, catches) => ({ id, date: now - daysAgo * 86400e3, src: 'hf', type: 'official', area: '上越', spots: ['naoetsu'], time: { buckets: ['朝'] }, catches });
+  const aji = (count, pos) => ({ sp: 'aji', name: 'アジ', count, max: 25, method: 'サビキ', mention: false, pos });
+  const prev = mergeArchive(null, [rep('a', 40, [aji(30, { m: 610, side: '内側' })]), rep('old', 500, [aji(1)])], now);
+  assert.equal(prev.records.length, 1, 'records past KEEP_DAYS are dropped');
+  const arc = mergeArchive(prev, [rep('b', 2, [aji(3, { m: 650, side: '内側' }), aji(2, { tip: true, side: '外側' })]), rep('c', 2, [aji(1, { m: 620, side: '内側' })]),
+    rep('d', 1, [{ sp: 'aji', name: 'アジ', mention: true }])], now);
+  assert.equal(arc.records.length, 3, 'mention-only report is not archived');
+  assert.ok(coverage(arc).hf <= now - 40 * 86400e3);
+  const h = buildHotspots(arc, now, { speciesIds: ['aji'] });
+  const P = h.spots.naoetsu.sp.aji;
+  assert.equal(P.days, 2, 'two report days, not three reports or 36 fish');
+  assert.equal(P.d14, 1);
+  assert.equal(P.zones[0].z, 'm6:i'); assert.equal(P.zones[0].days, 2);
+  assert.equal(h.rank.aji[0].spot, 'naoetsu');
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

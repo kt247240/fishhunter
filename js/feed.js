@@ -8,9 +8,23 @@
   const FH = (g.FH = g.FH || {});
   const DAY = 86400e3;
   let intel = null;
+  let hot = null;
   const evCache = new Map();
 
+  /** Long-term evidence (data/hotspots.json: 60 days of catch DAYS per spot × species × pier zone). */
+  async function loadHot() {
+    try {
+      const r = await FH.diag.fetchWithTimeout('data/hotspots.json', { cache: 'no-store' }, 10000);
+      const j = await r.json();
+      if (j && j.spots) hot = j;
+    } catch (_) { /* optional */ }
+  }
+
   async function load() {
+    const hp = loadHot();
+    try { return await loadIntel(); } finally { await hp; }
+  }
+  async function loadIntel() {
     try {
       const d = await FH.diag.track('feed', '釣果インテル', async () => {
         const r = await FH.diag.fetchWithTimeout('data/intel.json', { cache: 'no-store' }, 10000);
@@ -192,6 +206,27 @@
     return { latest: rs[0].visitors, date: rs[0].date, avg, max: Math.max(...rs.map((r) => r.visitors)) };
   }
 
+  /**
+   * Evidence for "where exactly": this spot's own record, else its area's.
+   * → { scope, label, reportDays, from, to, sources, rate, p: {days,d30,d14,d7,fish,max,last,methods,tb,zones} }
+   */
+  function target(spot, sp) {
+    if (!hot) return null;
+    const S = hot.spots[spot.id];
+    if (S && S.sp[sp.id] && S.reportDays >= 3) return pack('spot', spot.name, S, S.sp[sp.id]);
+    const A = hot.spots['@' + spot.area];
+    if (A && A.sp[sp.id]) return pack('area', spot.area + 'エリア', A, A.sp[sp.id]);
+    return S && S.reportDays >= 5 ? pack('spot', spot.name, S, null) : null;
+  }
+  function pack(scope, label, S, p) {
+    return { scope, label, reportDays: S.reportDays, from: S.from, to: S.to, sources: S.sources, days: hot.days, p, rate: p ? p.days / Math.max(1, S.reportDays) : 0 };
+  }
+  /** Spots ranked by days with this species reported caught (last 30 days). */
+  function hotRank(sp) {
+    if (!hot || !hot.rank) return [];
+    return (hot.rank[sp.id] || []).map((r) => Object.assign({}, r, { spot: FH.spotById[r.spot], spotId: r.spot })).filter((r) => r.spot);
+  }
+
   function list({ limit = 40 } = {}) {
     if (!intel) return [];
     return intel.reports.filter((r) => r.catches.some((c) => !c.mention)).slice(0, limit);
@@ -204,6 +239,7 @@
       if (intel && intel.observations) for (const id of Object.keys(intel.observations)) { const v = observed(id); if (v) o[id] = v; }
       return o;
     },
+    target, hotRank, hotLoaded: () => !!hot,
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
