@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import { dailyMax, drift, skillFor } from './intel/skill.mjs';
-import { parseLandings, landingsBySpecies, parseKaikyo } from './intel/official.mjs';
+import { parseLandings, landingsBySpecies, parseKaikyo, parseKyucho } from './intel/official.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
@@ -222,6 +222,15 @@ test('official: set-net landings CSV and 海況情報 text', () => {
   assert.equal(k.t0, 28.6); assert.equal(k.t50, 21.3); assert.equal(k.t100, 15.4);
   assert.equal(k.anomaly.t0, 'かなり高め'); assert.equal(k.anomaly.t50, 'やや高め');
   assert.deepEqual([...k.obs.from, ...k.obs.to], [8, 24, 8, 27]);
+});
+
+test('急潮情報: none vs an active 警戒 notice', () => {
+  const none = parseKyucho('<h2>現在発表している急潮情報</h2><p>　現在発表している急潮情報はありません。</p><h2>過去に発表した急潮情報</h2>');
+  assert.equal(none.active, false);
+  const on = parseKyucho('<h2>現在発表している急潮情報</h2><ul><li><a href="/uploaded/attachment/1.pdf">低気圧通過に関する情報 第1号【警戒：令和8年7月13日】（新潟南部・佐渡東岸）</a></li></ul><h2>過去に発表した急潮情報</h2>');
+  assert.equal(on.active, true); assert.equal(on.items[0].level, '警戒');
+  assert.equal(on.zones.join(), '佐渡東岸,新潟南部');
+  assert.match(on.items[0].url, /^https:\/\/www\.pref\.niigata\.lg\.jp\/uploaded\/attachment\/1\.pdf$/);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

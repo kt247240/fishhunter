@@ -135,6 +135,13 @@
       if (c.gust != null && c.gust >= 13) up(2, `突風 ${c.gust.toFixed(0)}m/s：ボート・桟橋は危険`);
       else if (c.wind != null && c.wind >= 8) up(1, `風 ${c.wind.toFixed(0)}m/s：ボートは要注意`);
     }
+    // 新潟県 急潮情報 (strong coastal current forecast ≥ 1 kt): 警戒 = within 2 days, 注意 = 3–5 days out.
+    const ky = spot.water === 'sea' && FH.feed && FH.feed.kyucho ? FH.feed.kyucho(spot.id) : null;
+    if (ky) {
+      const lv = ky.items.some((x) => x.level === '警戒') ? '警戒' : '注意';
+      if (lv === '警戒') up(1, '新潟県が急潮【警戒】を発表中：堤防先端・磯では急な強い流れに注意');
+      else reasons.push('新潟県が急潮【注意】を発表中（3〜5日後に強い流れの予想）');
+    }
     if (c.code === 75 || c.code === 86) up(1, '大雪：路面・視界に注意');
     return { level, reasons, label: ['OK', '注意', '危険'][level] };
   }
@@ -522,6 +529,8 @@
     else if (phase === 'mazume') out.layer = '表層〜中層（ベイトが浮く時間）';
     else if (phase === 'night') out.layer = '表層〜中層（常夜灯の明暗）';
     else out.layer = cloudy ? '中層' : '中層〜ボトム（日差しを避けて沈む）';
+    const hot = thermoDeep(spot, c);
+    if (hot != null && !BOTTOM.has(sp.id) && c.waterTemp >= sp.temp[2]) out.layer += `／表層が高水温（${c.waterTemp.toFixed(0)}℃）→ いつもより一段深め`;
 
     // Aim points by spot type
     const T = spot.type;

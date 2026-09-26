@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v27.0.0 OPEN DATA';
+  const VERSION = 'v28.0.0 PLAN';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -195,6 +195,7 @@
     renderAstro(sp);
     renderChart(sp, fish, now);
     renderHero(sp, fish, c, cur, wins, now);
+    renderPlan(sp, fish, cur, wins, now);
     renderRadar(sp, fish);
     renderTarget(sp, fish);
     renderLab(sp, fish);
@@ -237,6 +238,13 @@
         <div class="gv-river">${R.series.map(([d, v]) => `<span class="${d > today ? 'fc' : d === today ? 'now' : ''}" title="${d}: ${v} m³/s"><i style="height:${Math.max(3, (v / mx) * 100)}%"></i></span>`).join('')}<b class="gv-med" style="bottom:${(R.median / mx) * 100}%"></b></div>
         <p class="small">${nowV != null ? `いま約<b>${nowV} m³/s</b>（平常${R.median} m³/sの${ratio.toFixed(1)}倍）` : ''}${ratio >= 2 ? ' → <b>増水中</b>。河口付近は濁りと塩分低下の可能性（シーバス・クロダイは濁りの境目が狙い目、アオリイカ・キスには不利）' : ratio != null && ratio < 0.7 ? ' → 渇水気味' : ' → ほぼ平常'}。</p>
         <p class="muted small">FishHunterの釣果日誌（直江津・東港）では、増水と釣果に一貫した関係は見られていません。スコアには入れず情報として表示しています。</p></section>`;
+    }
+    const KY = O.kyucho;
+    if (KY) {
+      const on = KY.active && KY.spots.includes(sp.id);
+      html += `<section class="lab-sec"><h4 class="rd-h">🌀 急潮情報（沿岸の急な強い流れ）</h4>${on
+        ? `<p class="tg-call kyucho-on">⚠️ ${KY.items.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join('<br>')}<br><span class="small">堤防先端・磯では強い流れに注意。詳細と対象海域は県の発表を確認してください。</span></p>`
+        : `<p class="small">現在、この海域への急潮情報は発表されていません（<a href="${esc(KY.page)}" target="_blank" rel="noopener">新潟県の発表ページ</a>を2時間ごとに確認）。</p>`}</section>`;
     }
     if (!html) { box.hidden = true; return; }
     html += `<p class="muted small">出典：${(O.credits || []).map(esc).join(' ／ ')}。<a href="${esc((k && k.page) || (L && L.page) || 'https://www.pref.niigata.lg.jp/site/suisan-kenkyu/')}" target="_blank" rel="noopener">新潟県水産海洋研究所</a></p>`;
@@ -369,6 +377,71 @@
     html += `<p class="muted small">FishHunterが公開釣果と過去の気象を毎日記録した「釣果日誌」から計算しています。過去データでの検証では、似た日の釣果から当日の釣果の有無をある程度見分けられました（AUC 約0.72）。ただし今は1シーズン分のため、効いているのは主に時期の近さです。</p>`;
     $('#lab').innerHTML = html;
     FH.motion.stagger($('#lab'));
+  }
+
+  /* 🧭 Plan board: when / where / how / why / watch-outs, assembled from every analysis on this page. */
+  function renderPlan(sp, fish, cur, wins, now) {
+    const box = $('#planCard');
+    const d = state.data;
+    if (!d || !cur) { box.hidden = true; return; }
+    const w = wins[0];
+    const t = w ? w.peakT : now;
+    const c = E.conditions(sp, t, d);
+    const r = E.score(sp, fish, c, hookOpts(sp, fish, c));
+    const tac = E.tactics(sp, fish, c);
+    const name = shortName(fish.name);
+    const rows = [];
+    const text = [`【${sp.name} × ${name}】FishHunter 作戦`];
+    const add = (ic, k, v, sub) => { rows.push(`<div class="pl-row"><span class="pl-ic">${ic}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
+
+    // いつ
+    if (w) add('⏰', 'いつ', `<b>${esc(range(w.start, w.end, now))}</b> ・ ピーク <b class="num">${w.peak}</b>`, esc(w.tags.join('・')));
+    else add('⏰', 'いつ', '72時間以内に目立った時合なし', '別の釣り場・魚種も検討を');
+
+    // どこ
+    const T = FH.feed.target ? FH.feed.target(sp, fish) : null;
+    const zone = T && T.p && T.p.zones && T.p.zones[0];
+    if (zone) add('📍', 'どこ', `<b>${esc(zone.label)}</b>`, `${esc(T.label)}の実績：${zone.days}日で釣果${zone.d14 ? `・直近14日で${zone.d14}日` : ''}`);
+    else if (tac.aim && tac.aim.length) add('📍', 'どこ', esc(tac.aim[0]), tac.aim[1] ? esc(tac.aim[1]) : '');
+
+    // どう
+    const method = (T && T.p && T.p.methods && T.p.methods[0] && T.p.methods[0][0]) || tac.method.name;
+    add('🎣', 'どう', `<b>${esc(method)}</b> ・ ${esc(tac.layer)}`, `カラー：${esc(tac.color.main)}`);
+
+    // なぜ
+    const why = [];
+    const pos = r.factors.filter((f) => f.key !== 'season' && f.impact > 1).sort((a, b) => b.impact - a.impact).slice(0, 2).map((f) => f.label);
+    if (pos.length) why.push(pos.join('・') + 'が好条件');
+    const book = FH.feed.daybook && FH.feed.daybook();
+    if (book && FH.insight && FH.feed.hasBook(sp.id)) {
+      const day = new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
+      const dc = FH.insight.dayConditions(sp, day, d);
+      if (dc) {
+        const near = FH.insight.analogs(book, sp.id, dc, day, 6);
+        const hit = near.filter((x) => x.e.f[fish.id]).length;
+        if (near.length) why.push(`似た${near.length}日のうち${hit}日で釣果`);
+        if (dc.ss != null && dc.ss <= 3) why.push(dc.ss <= 0 ? '時化の当日' : `時化から${dc.ss}日目`);
+      }
+    }
+    const L = FH.feed.official && FH.feed.official() && FH.feed.official().landings;
+    const ls = L && L.species && L.species[fish.id];
+    if (ls && ls.avg5 > 0) why.push(`沖の水揚げは5年平均の${Math.round((ls.t / ls.avg5) * 100)}%（${L.month}月）`);
+    add('💡', 'なぜ', why.length ? esc(why.join(' ／ ')) : `旬度 ${Math.round(r.season * 100)}%`, '');
+
+    // 注意
+    const warn = [...r.safety.reasons];
+    const lead = Math.round((t - now) / 86400e3);
+    const k = lead >= 2 && FH.feed.forecastSkill ? FH.feed.forecastSkill(lead) : null;
+    if (k && k.wind && k.wind.bias <= -0.7) warn.push(`${k.lead}日先の風予報は実際より約${Math.abs(k.wind.bias).toFixed(1)}m/s弱めに出がち`);
+    const cr = book && FH.insight ? FH.insight.crowd(book, sp.id, 6, now) : null;
+    if (cr && cr.n >= 5) { const dow = new Date(t + 9 * 3600e3).getUTCDay(); const v = dow === 6 ? cr.sat : dow === 0 ? cr.sun : cr.weekday; if (v != null) warn.push(`混雑の目安 約${v}名（${dow === 6 ? '土曜' : dow === 0 ? '日曜' : '平日'}の中央値）`); }
+    if (sp.rules) warn.push(sp.rules);
+    add(r.safety.level >= 1 ? '⚠️' : '✅', '注意', warn.length ? esc(warn.slice(0, 3).join(' ／ ')) : '特になし', '');
+
+    box.hidden = false;
+    $('#planScope').textContent = w ? `ピーク ${hm(w.peakT)} 時点の条件で作成` : '';
+    $('#plan').innerHTML = rows.join('');
+    state.planText = text.join('\n') + '\n' + location.origin + location.pathname;
   }
 
   /* 🎯 Evidence-backed target: how often it was caught here, where on the pier, how — counted in days. */
@@ -1105,6 +1178,10 @@
     $('#spotPick').addEventListener('change', (e) => select(e.target.value, null, { focusMap: true }));
     $('#huntTarget').addEventListener('change', (e) => select(null, e.target.value));
     $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { show(b.dataset.tab); g.scrollTo({ top: 0 }); } });
+    $('#btnPlanCopy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(state.planText || ''); FH.ui.toast('作戦をコピーしました'); }
+      catch (_) { FH.ui.toast('コピーできませんでした'); }
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const hs = e.target.closest && e.target.closest('[data-hot-spot]');

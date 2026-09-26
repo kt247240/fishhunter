@@ -190,4 +190,16 @@ test('summer thermocline: a too-warm surface no longer zeroes the temperature fa
   assert.ok(r2.factors.find((x) => x.key === 'temp').value < 0.1, 'no thermocline outside Jun–Oct');
 });
 
+test('急潮【警戒】 adds a caution for the zone\'s spots only', () => {
+  const t = Date.parse('2026-09-20T07:00:00+09:00'), d = synth(t);
+  const keep = FH.feed.kyucho;
+  FH.feed.kyucho = (id) => (id === 'naoetsu' ? { active: true, items: [{ level: '警戒' }], spots: ['naoetsu'] } : null);
+  try {
+    const s1 = E.safety(naoetsu, E.conditions(naoetsu, t, d));
+    assert.equal(s1.level, 1); assert.match(s1.reasons.join(), /急潮【警戒】/);
+    const s2 = E.safety(FH.spotById.ryotsu, E.conditions(FH.spotById.ryotsu, t, d));
+    assert.ok(!s2.reasons.some((r) => /急潮/.test(r)));
+  } finally { FH.feed.kyucho = keep; }
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

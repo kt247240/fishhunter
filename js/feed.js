@@ -298,6 +298,7 @@
     target, hotRank, hotLoaded: () => !!hot,
     daybook: () => book,
     official: () => official, kaikyo,
+    kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,

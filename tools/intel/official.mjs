@@ -77,6 +77,39 @@ export function parseKaikyo(text) {
   };
 }
 
+// 急潮情報 zones → spots (Sado tips go to both Sado zones: the notice text decides, we stay cautious).
+export const KYUCHO_ZONES = {
+  佐渡西岸: ['ogi', 'washizaki'], 佐渡東岸: ['ryotsu', 'washizaki', 'ogi'],
+  新潟北部: ['sasagawa', 'iwafune', 'niigata-east', 'aganogawa', 'niigata-west'],
+  新潟南部: ['ohkouzu', 'teradomari', 'izumozaki', 'kashiwazaki', 'kujiranami', 'kakizaki', 'kuroi', 'naoetsu', 'nadachi', 'tsutsuishi', 'nou-port', 'himeko', 'oyashirazu']
+};
+/**
+ * Parse the 急潮情報 top page: only the fact that a notice is out (level, title, date, link) is kept.
+ * → { active, items: [{ level: '警戒'|'注意'|'経過', title, url }], zones: [...] }
+ */
+export function parseKyucho(html, base = BASE) {
+  const i = html.indexOf('現在発表している急潮情報'), j = html.indexOf('過去に発表した急潮情報', i + 1);
+  if (i < 0) return null;
+  const sec = html.slice(i, j > i ? j : i + 4000);
+  const text = sec.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  if (/発表している急潮情報はありません/.test(text)) return { active: false, items: [], zones: [] };
+  const items = [...sec.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => {
+    const title = m[2].replace(/\s+/g, ' ').trim();
+    const level = /警戒/.test(title) ? '警戒' : /注意/.test(title) ? '注意' : /経過/.test(title) ? '経過' : '情報';
+    return { level, title: title.slice(0, 80), url: new URL(m[1], base + '/site/suisan-kenkyu/').href };
+  });
+  const zones = Object.keys(KYUCHO_ZONES).filter((z) => text.includes(z));
+  return { active: true, items, zones };
+}
+
+async function kyucho() {
+  const page = `${BASE}/site/suisan-kenkyu/kyucho.html`;
+  const k = parseKyucho(await (await get(page)).text());
+  if (!k) throw new Error('page layout changed');
+  const spots = k.active ? [...new Set((k.zones.length ? k.zones : Object.keys(KYUCHO_ZONES)).flatMap((z) => KYUCHO_ZONES[z]))] : [];
+  return Object.assign(k, { page, spots, checked: new Date().toISOString() });
+}
+
 async function landings(year) {
   const html = await (await get(`${BASE}/site/suisan-kenkyu/${year}mizuage.html`)).text();
   const csvs = links(html, /\.csv/).filter((l) => /(\d{1,2})月/.test(l.text));
@@ -126,6 +159,7 @@ export async function collectOfficial(outDir, now = Date.now(), prev = null) {
   const tryYears = async (fn) => { try { return (await fn(year)) || (await fn(year - 1)); } catch (e) { try { return await fn(year - 1); } catch (_) { throw e; } } };
   try { out.landings = await tryYears(landings); if (out.landings) out.credits.push('新潟県水産海洋研究所「水揚げ情報」（新潟県オープンデータ, CC BY 4.0）を加工'); } catch (e) { out.errors.push('landings: ' + e.message); }
   try { out.kaikyo = await tryYears(kaikyo); if (out.kaikyo) out.credits.push('新潟県水産海洋研究所「海況情報」（新潟県オープンデータ, CC BY 4.0）を加工'); } catch (e) { out.errors.push('kaikyo: ' + e.message); }
+  try { out.kyucho = await kyucho(); } catch (e) { out.errors.push('kyucho: ' + e.message); }
   try { out.rivers = await rivers(now); out.credits.push('河川流量: GloFAS（Copernicus）via Open-Meteo Flood API, CC BY 4.0'); } catch (e) { out.errors.push('rivers: ' + e.message); }
   // A source that failed this time keeps its last good value (flagged stale).
   for (const k of ['landings', 'kaikyo', 'rivers']) if (!out[k] && prev && prev[k]) { out[k] = prev[k]; out.stale = [...(out.stale || []), k]; }
