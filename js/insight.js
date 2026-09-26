@@ -134,7 +134,49 @@
     return res;
   }
 
+  const STORM_BUCKETS = [['0-1', '当日〜翌日', (d) => d <= 1], ['2', '2日後', (d) => d === 2], ['3', '3日後', (d) => d === 3], ['4-6', '4〜6日後', (d) => d >= 4 && d <= 6], ['7+', '凪が続く', (d) => d >= 7]];
+  const stormBucket = (d) => (d == null ? null : STORM_BUCKETS.find((b) => b[2](d))[0]);
+  /**
+   * 時化後カーブ: catch vs. days since the last blow (≥1.5 m), season removed by comparing each day
+   * with that pier's ±7-day mean of log(1+fish). mult = exp(mean residual) ≈ "×いつも".
+   */
+  function stormCurve(book, spotId, sp) {
+    const days = ((book && book.days) || []).filter((e) => e.s === spotId && e.c && e.c.ss != null);
+    if (days.length < 20) return null;
+    const y = (e) => Math.log1p(e.f[sp] ? e.f[sp][0] : 0);
+    const t = days.map((e) => Date.parse(e.d));
+    const g = {};
+    days.forEach((e, i) => {
+      let s = 0, n = 0;
+      for (let j = 0; j < days.length; j++) if (Math.abs(t[j] - t[i]) <= 7 * DAY) { s += y(days[j]); n++; }
+      const k = stormBucket(e.c.ss);
+      (g[k] || (g[k] = [])).push(y(e) - s / n);
+    });
+    return STORM_BUCKETS.map(([key, label]) => {
+      const r = g[key] || [];
+      return { key, label, n: r.length, mult: r.length ? Math.exp(r.reduce((a, b) => a + b, 0) / r.length) : null };
+    });
+  }
+
   const r1 = (x) => (x == null || !isFinite(x) ? null : Math.round(x * 10) / 10);
+  /**
+   * Days since the sea last peaked ≥ thr metres (0 = this morning's early hours, 1 = yesterday …).
+   * null when the marine series does not reach back far enough to tell (or max days of calm).
+   */
+  function daysSinceStorm(spot, day, data, thr = 1.5, max = 10) {
+    const m = data && data.marine && data.marine[spot.id];
+    if (!m || !m.time || !m.time.length) return null;
+    const start = Date.parse(day + 'T00:00:00+09:00');
+    for (let k = 0; k <= max; k++) {
+      const a = start - k * DAY, b = k === 0 ? start + 6 * 3600e3 : a + DAY;
+      if (a < m.time[0]) return k >= 7 ? k : null; // a week of calm is enough to call it 凪が続く
+      let peak = null;
+      for (let i = 0; i < m.time.length; i++) if (m.time[i] >= a && m.time[i] < b && m.wave[i] != null) peak = Math.max(peak ?? 0, m.wave[i]);
+      if (peak != null && peak >= thr) return k;
+    }
+    return max + 1; // calm for longer than `max` days
+  }
+
   /** Daytime (05–17 JST) summary of the engine's conditions for one spot and day, or null. */
   function dayConditions(spot, day, data) {
     const E = FH.engine, H = 3600e3;
@@ -144,7 +186,9 @@
     if (cs.length < 6) return null;
     const mean = (k) => { const v = cs.map((c) => c[k]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
     const noon = E.conditions(spot, t0 + 7 * H, data);
+    const ss = daysSinceStorm(spot, day, data);
     return {
+      ...(ss != null ? { ss } : {}),
       wv: r1(mean('wave')), wd: r1(mean('wind')), on: r1(mean('onshore')), sst: r1(mean('sst') ?? mean('waterTemp')),
       prev: r1(cs[1] && cs[1].wavePrev), rain: r1(cs[0].rain24), tide: noon.tide.name, age: r1(noon.moonAge)
     };
@@ -160,5 +204,5 @@
     return z[0] === 'm' ? `${k * 100}〜${k * 100 + 99}m${side}` : `${k * 10 + 1}〜${k * 10 + 10}番`;
   }
 
-  FH.insight = { distance, analogs, lift, season, crowd, migration, dayConditions, zoneLabel };
+  FH.insight = { distance, analogs, lift, season, crowd, migration, daysSinceStorm, stormCurve, stormBucket, dayConditions, zoneLabel };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

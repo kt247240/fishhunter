@@ -685,3 +685,14 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
 .tg-colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tg-colors .rd-h { margin: 0 4px 0 0; }
 .chip.neg { color: var(--meh); border-color: color-mix(in srgb, var(--meh) 40%, var(--line)); }
+.storm { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.storm li { display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: center; font-size: 13px; min-height: 30px; }
+.storm li.now .st-l { color: var(--accent); }
+.st-l { font-weight: 700; white-space: nowrap; }
+.st-l em { font-style: normal; font-size: 10px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); }
+.st-bar { position: relative; height: 12px; border-radius: 99px; background: var(--line); }
+.st-bar i { display: block; height: 100%; border-radius: 99px; animation: grow 1s cubic-bezier(.2, .8, .2, 1) both; transform-origin: left; animation-delay: calc(var(--i, 0) * 70ms + .1s); }
+.st-bar i.up { background: linear-gradient(90deg, var(--accent), var(--good)); }
+.st-bar i.dn { background: var(--faint); }
+.st-one { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .5; }
+.st-n { font-style: normal; font-size: 10.5px; color: var(--muted); margin-left: 6px; font-weight: 600; }

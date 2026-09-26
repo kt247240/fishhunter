@@ -5,7 +5,7 @@
 (function (g) {
   'use strict';
   const FH = (g.FH = g.FH || {});
-  const CACHE_KEY = 'fh.wx.v3';
+  const CACHE_KEY = 'fh.wx.v4';
   const TTL = 30 * 60e3;
   const WX_URL = 'https://api.open-meteo.com/v1/forecast';
   const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
@@ -86,7 +86,7 @@
       latitude: pts.map((p) => p.lat.toFixed(3)).join(','),
       longitude: pts.map((p) => p.lon.toFixed(3)).join(','),
       hourly: MARINE_VARS.join(','),
-      timezone: 'Asia/Tokyo', timeformat: 'unixtime', past_days: 1, forecast_days: 7
+      timezone: 'Asia/Tokyo', timeformat: 'unixtime', past_days: 7, forecast_days: 7
     });
     const arr = await getJSON(url);
     const out = {};

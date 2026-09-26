@@ -62,10 +62,10 @@
       swell: at(m && m.swell, j), sst: at(m && m.sst, j),
       hasWx: i >= 0, hasMarine: j >= 0
     };
-    // Recent sea state: the roughest hour 6–36 h ago (→ "after the storm"), and the 3-day SST trend.
+    // Recent sea state: the roughest hour 6–60 h ago (the pier logs stay above normal for ~2–3 days after a blow) (→ "after the storm"), and the 3-day SST trend.
     if (m && j >= 0) {
       let prev = null;
-      for (let k = j - 36; k <= j - 6; k++) { const v = at(m.wave, k); if (v != null && (prev == null || v > prev)) prev = v; }
+      for (let k = j - 60; k <= j - 6; k++) { const v = at(m.wave, k); if (v != null && (prev == null || v > prev)) prev = v; }
       c.wavePrev = prev;
       const s72 = at(m.sst, j - 72);
       c.dsst = c.sst != null && s72 != null ? c.sst - s72 : null;
@@ -199,7 +199,7 @@
   }
 
   /**
-   * 0..1: sea was rough in the last 6–36 h and is now fishable. On the pier logs the catch rises
+   * 0..1: sea was rough in the last 6–60 h and is now fishable. On the pier logs the catch rises
    * steadily with yesterday's wave height from ~0.8 m up, so the ramp starts low (summer seas are calm).
    */
   function afterStorm(spot, c) {
@@ -285,7 +285,7 @@
     const after = afterStorm(spot, c);
     if (after > 0) {
       const b = after * 10 * seasonMul;
-      s += b; extras.push({ key: 'after', label: '時化後の荒食い', impact: b, note: `前日〜今朝の波 最大${c.wavePrev.toFixed(1)}m → いま ${c.wave.toFixed(1)}m` });
+      s += b; extras.push({ key: 'after', label: '時化後の荒食い', impact: b, note: `直近2日半の波 最大${c.wavePrev.toFixed(1)}m → いま ${c.wave.toFixed(1)}m` });
     }
 
     const safe = safety(spot, c);

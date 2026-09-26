@@ -180,6 +180,19 @@ test('insight: analogs prefer same season + similar sea; season flow; crowd', ()
   const mg = I.migration({ days: mk }, 'aori', ['A', 'B'], Date.UTC(2026, 8, 18));
   assert.equal(mg.lead.from, 'B'); assert.equal(mg.lead.days, 3);
   assert.ok(mg.spots[0].arrivals.length >= 1);
+  // storm curve: catches doubled on days 0–2 after a blow
+  const sb = [];
+  for (let i = 0; i < 60; i++) {
+    const ss = i % 10; const d = new Date(Date.UTC(2026, 6, 1) + i * 864e5).toISOString().slice(0, 10);
+    sb.push({ s: 'P', d, dow: 1, c: { ss }, f: { aji: [ss <= 2 ? 40 : 10, null, null] } });
+  }
+  const sc = I.stormCurve({ days: sb }, 'P', 'aji');
+  assert.ok(sc.find((b) => b.key === '0-1').mult > 1.5, JSON.stringify(sc));
+  assert.ok(sc.find((b) => b.key === '4-6').mult < 1);
+  // days since storm from a marine series
+  const t0 = Date.parse('2026-09-10T00:00:00+09:00');
+  const marine = { P: { time: Array.from({ length: 24 * 8 }, (_, h) => t0 + h * 3600e3), wave: Array.from({ length: 24 * 8 }, (_, h) => (h >= 24 && h < 36 ? 2.0 : 0.5)) } };
+  assert.equal(I.daysSinceStorm({ id: 'P' }, '2026-09-14', { marine }), 3);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);

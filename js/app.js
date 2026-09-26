@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v25.2.0 COLORS';
+  const VERSION = 'v25.3.0 STORM';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -262,7 +262,22 @@
         <p class="small">直近3週は<b>${flow}</b>（釣れた日 ${Math.round(rNow * 100)}% ／ それ以前 ${Math.round(rBefore * 100)}%）${grow ? ` ・ ${grow}` : ''}${lastHit < ss.length - 2 ? ' ・ ここ2週は釣果報告なし' : ''}</p></section>`;
     }
 
-    // 3) Migration radar: the same fish at every logged pier, side by side
+    // 3) Storm curve: how this fish did N days after a blow at this pier
+    if (sp.water === 'sea') {
+      const sc = I.stormCurve(book, sp.id, fish.id);
+      if (sc && sc.some((b) => b.mult != null && b.key !== '7+' && b.n >= 3)) {
+        const cur = I.stormBucket(cond.ss);
+        const mx = Math.max(2, ...sc.map((b) => b.mult || 0));
+        const best = sc.filter((b) => b.n >= 3 && b.key !== '7+').sort((a, b) => b.mult - a.mult)[0];
+        html += `<section class="lab-sec"><h4 class="rd-h">🌊 時化後カーブ（${esc(name(fish.id))}） <small>最大波1.5m以上の時化から何日目か／季節の影響を除いた「いつもの何倍」</small></h4>
+          <ol class="storm">${sc.map((b, i) => `<li class="${b.key === cur ? 'now' : ''}" style="--i:${i}"><span class="st-l">${esc(b.label)}${b.key === cur ? '<em>今日</em>' : ''}</span>
+            <span class="st-bar"><i class="${(b.mult || 0) >= 1 ? 'up' : 'dn'}" style="width:${b.mult == null ? 0 : Math.max(4, (b.mult / mx) * 100)}%"></i><span class="st-one" style="left:${(1 / mx) * 100}%"></span></span>
+            <span class="tz-v num">${b.mult == null ? '—' : '×' + b.mult.toFixed(1)}<em class="st-n">${b.n}日</em></span></li>`).join('')}</ol>
+          <p class="small">${best && best.mult >= 1.2 ? `この釣り場の${esc(name(fish.id))}は <b>時化の${esc(best.label)}</b> がいつもの約${best.mult.toFixed(1)}倍（${best.n}日分）。` : '時化の前後で大きな差は見られません。'}${cond.ss != null ? ` 今日は${cond.ss <= 0 ? '時化の当日' : cond.ss > 10 ? '凪が10日以上続いています' : `時化から${cond.ss}日目`}。` : ''} <span class="muted">日数が少ない区分は参考値です。</span></p></section>`;
+      }
+    }
+
+    // 4) Migration radar: the same fish at every logged pier, side by side
     const piers = [...new Set(book.days.map((e) => e.s))].filter((id) => FH.spotById[id] && FH.spotById[id].water === sp.water);
     if (piers.length >= 2) {
       const mg = I.migration(book, fish.id, piers, state.now);
@@ -287,7 +302,7 @@
       }
     }
 
-    // 4) Crowding
+    // 5) Crowding
     const cr = I.crowd(book, sp.id, 6, state.now);
     if (cr.n >= 5) {
       const cell = (label, v) => `<div class="lab-crowd-c"><span>${label}</span><b class="num">${v == null ? '—' : v}</b><small>${v == null ? '' : '名'}</small></div>`;
