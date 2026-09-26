@@ -1,9 +1,9 @@
 /* FishHunter service worker — app shell offline, network-first for data. */
-const VERSION = 'fh-v24.0.0';
+const VERSION = 'fh-v25.0.0';
 const SHELL = [
   './', 'app.html', 'index.html', 'privacy.html', 'css/app.css', 'css/lp.css', 'js/lp.js', 'ops.html', 'css/ops.css', 'js/operator.js', 'manifest.webmanifest', 'icons/icon.svg',
   'js/diagnostics.js', 'js/config.js', 'js/community.js', 'js/spots.js', 'js/astro.js', 'js/weather.js', 'js/feed.js',
-  'js/catchlog.js', 'js/engine.js', 'js/motion.js', 'js/ui.js', 'js/scene.js', 'js/map.js', 'js/picks-worker.js', 'js/share.js', 'js/prefs.js', 'js/app.js', 'js/ptr.js',
+  'js/catchlog.js', 'js/engine.js', 'js/insight.js', 'js/motion.js', 'js/ui.js', 'js/scene.js', 'js/map.js', 'js/picks-worker.js', 'js/share.js', 'js/prefs.js', 'js/app.js', 'js/ptr.js',
   'assets/angler.webp', 'assets/angler-fish.webp'
 ];
 

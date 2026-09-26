@@ -654,3 +654,24 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
 .tz-v { font-weight: 800; text-align: right; white-space: nowrap; }
 .tz-v em { font-style: normal; font-size: 10.5px; font-weight: 700; margin-left: 6px; padding: 1px 6px; border-radius: 6px; color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); }
 .chip.ev { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
+
+/* ═════════════════ v25 LAB (original analyses) ═════════════════ */
+.lab-card #lab { display: grid; gap: 16px; }
+.lab-sec { display: grid; gap: 8px; }
+.lab-now { margin: 0; font-size: 13px; color: var(--muted); }
+.lab-now b { color: var(--text); }
+.lab-lift li.on .tz-l { color: var(--accent); }
+.lab-days { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.lab-days li { display: grid; gap: 4px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
+.lab-weeks { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; align-items: end; }
+.lw { display: grid; gap: 2px; justify-items: center; }
+.lw-bar { width: 100%; height: 64px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); display: flex; align-items: flex-end; overflow: hidden; }
+.lw-bar i { display: block; width: 100%; background: linear-gradient(0deg, var(--hot), var(--accent)); animation: growY .9s cubic-bezier(.2, .8, .2, 1) both; transform-origin: bottom; }
+.lw.now .lw-bar { border-color: var(--accent); }
+.lw-size { font-size: 11px; font-weight: 800; min-height: 14px; }
+.lw-date { font-size: 9.5px; color: var(--faint); font-family: var(--mono); }
+@keyframes growY { from { transform: scaleY(0); } }
+.lab-crowd { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lab-crowd-c { display: grid; justify-items: center; padding: 10px 6px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.lab-crowd-c b { font-size: 24px; color: var(--text); line-height: 1.1; }
+@media (prefers-reduced-motion: reduce) { .lw-bar i { animation: none; } }

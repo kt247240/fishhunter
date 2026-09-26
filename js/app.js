@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v24.0.0 TARGET';
+  const VERSION = 'v25.0.0 LAB';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -197,7 +197,81 @@
     renderHero(sp, fish, c, cur, wins, now);
     renderRadar(sp, fish);
     renderTarget(sp, fish);
+    renderLab(sp, fish);
     renderPicks();
+  }
+
+  /* 🧠 Original analyses from the daybook: days like today, season flow, crowding. */
+  function renderLab(sp, fish) {
+    const box = $('#labCard');
+    const I = FH.insight, book = FH.feed.daybook && FH.feed.daybook();
+    if (!I || !book || !FH.feed.hasBook(sp.id) || !state.data) { box.hidden = true; return; }
+    const H = 3600e3;
+    const jst = new Date(state.now + 9 * H);
+    const tomorrow = jst.getUTCHours() >= 15;
+    const day = new Date(state.now + 9 * H + (tomorrow ? 24 * H : 0)).toISOString().slice(0, 10);
+    const cond = I.dayConditions(sp, day, state.data);
+    if (!cond) { box.hidden = true; return; }
+    box.hidden = false;
+    $('#labScope').textContent = `${sp.name} ・ 釣果日誌 ${book.days.filter((e) => e.s === sp.id).length}日分から`;
+    const name = (id) => shortName((FH.speciesById[id] || { name: id }).name);
+    const condTxt = (c) => [c.wv != null ? `波${c.wv}m` : '', c.wd != null ? `風${c.wd.toFixed(0)}m/s` : '', c.sst != null ? `水温${c.sst.toFixed(1)}℃` : '', c.prev != null && c.prev >= 0.9 ? '時化後' : ''].filter(Boolean).join(' ・ ');
+    const mdS = (d) => { const [, m, dd] = d.split('-'); return `${+m}/${+dd}(${'日月火水木金土'[new Date(d + 'T12:00:00+09:00').getUTCDay()]})`; };
+    let html = '';
+
+    // 1) Days like today
+    const near = I.analogs(book, sp.id, cond, day, 6);
+    const lf = I.lift(book, sp.id, near);
+    const mine = lf.find((x) => x.sp === fish.id);
+    html += `<section class="lab-sec"><h4 class="rd-h">🔁 ${tomorrow ? '明日' : '今日'}に近い日（時期・海況が似た過去の日）</h4>
+      <p class="lab-now">${tomorrow ? '明日' : '今日'}の日中：<b>${esc(condTxt(cond))}</b>${cond.tide ? ` ・ ${esc(cond.tide)}` : ''}</p>`;
+    if (near.length) {
+      html += `<p class="tg-call">${mine
+        ? `似た${near.length}日のうち <b>${mine.hit}日</b> で${esc(name(fish.id))}が釣れていました（平均${Math.round(mine.fish)}匹${mine.zone ? `・多かったのは <b>${esc(I.zoneLabel(mine.zone))}</b>` : ''}）`
+        : `似た${near.length}日には${esc(name(fish.id))}の釣果がありませんでした`}</p>`;
+      const best = lf.slice(0, 5);
+      if (best.length) html += `<ol class="tg-zones lab-lift">${best.map((x, i) => `<li style="--i:${i}" class="${x.sp === fish.id ? 'on' : ''}"><span class="tz-l">${esc(name(x.sp))}</span><span class="tz-bar"><i style="width:${Math.max(6, x.rate * 100)}%"></i></span><span class="tz-v num">${x.hit}/${x.n}日${x.lift >= 1.25 ? `<em>いつもの${x.lift.toFixed(1)}倍</em>` : ''}</span></li>`).join('')}</ol>`;
+      html += `<details class="more"><summary><span>似た日の中身を見る</span></summary><ul class="lab-days">${near.map((x) => {
+        const top = Object.entries(x.e.f).sort((a, b) => b[1][0] - a[1][0]).slice(0, 4);
+        return `<li><b>${mdS(x.e.d)}</b> <span class="muted small">${esc(condTxt(x.e.c))}</span><div class="chips">${top.map(([k, f]) => `<span class="chip dot" style="--c:${(FH.speciesById[k] || {}).color || 'var(--accent)'}">${esc(name(k))}×${f[0]}${f[1] ? ' 〜' + f[1] + 'cm' : ''}</span>`).join('') || '<span class="muted small">釣果記載なし</span>'}</div></li>`;
+      }).join('')}</ul></details>`;
+    }
+    html += '</section>';
+
+    // 2) Season flow for the selected fish
+    const ss = I.season(book, sp.id, fish.id, 10, state.now);
+    if (ss.some((w) => w.hit)) {
+      const sizes = ss.filter((w) => w.size != null);
+      const recent = sizes.slice(-4);
+      let grow = '';
+      if (recent.length >= 2) {
+        const a = recent[0].size, b = recent[recent.length - 1].size;
+        grow = b - a >= 2 ? `サイズアップ中（${a}→${b}cm）` : a - b >= 2 ? `サイズダウン傾向（${a}→${b}cm）` : `サイズは横ばい（約${b}cm）`;
+      }
+      const lastHit = ss.map((w) => w.hit > 0).lastIndexOf(true);
+      const hitsRecent = ss.slice(-3).reduce((a, w) => a + w.hit, 0), daysRecent = ss.slice(-3).reduce((a, w) => a + w.days, 0);
+      const hitsBefore = ss.slice(0, -3).reduce((a, w) => a + w.hit, 0), daysBefore = ss.slice(0, -3).reduce((a, w) => a + w.days, 0);
+      const rNow = daysRecent ? hitsRecent / daysRecent : 0, rBefore = daysBefore ? hitsBefore / daysBefore : 0;
+      const flow = rNow >= rBefore + 0.2 ? '上り調子' : rNow <= rBefore - 0.2 ? '下り坂' : '安定';
+      html += `<section class="lab-sec"><h4 class="rd-h">📈 ${esc(name(fish.id))}のシーズンの流れ <small>週ごとの「釣れた日の割合」と最大サイズの中央値</small></h4>
+        <div class="lab-weeks">${ss.map((w, i) => {
+          const r = w.days ? w.hit / w.days : 0;
+          const d = new Date(w.w);
+          return `<div class="lw${i === ss.length - 1 ? ' now' : ''}" title="${d.getUTCMonth() + 1}/${d.getUTCDate()}週：${w.hit}/${w.days}日"><span class="lw-bar"><i style="height:${w.days ? Math.max(4, r * 100) : 0}%"></i></span><span class="lw-size num">${w.size != null ? w.size : ''}</span><span class="lw-date">${d.getUTCMonth() + 1}/${d.getUTCDate()}</span></div>`;
+        }).join('')}</div>
+        <p class="small">直近3週は<b>${flow}</b>（釣れた日 ${Math.round(rNow * 100)}% ／ それ以前 ${Math.round(rBefore * 100)}%）${grow ? ` ・ ${grow}` : ''}${lastHit < ss.length - 2 ? ' ・ ここ2週は釣果報告なし' : ''}</p></section>`;
+    }
+
+    // 3) Crowding
+    const cr = I.crowd(book, sp.id, 6, state.now);
+    if (cr.n >= 5) {
+      const cell = (label, v) => `<div class="lab-crowd-c"><span>${label}</span><b class="num">${v == null ? '—' : v}</b><small>${v == null ? '' : '名'}</small></div>`;
+      html += `<section class="lab-sec"><h4 class="rd-h">👥 混雑の目安 <small>過去6週の入場者数（中央値）</small></h4>
+        <div class="lab-crowd">${cell('平日', cr.weekday)}${cell('土曜', cr.sat)}${cell('日曜', cr.sun)}</div></section>`;
+    }
+    html += `<p class="muted small">FishHunterが公開釣果と過去の気象を毎日記録した「釣果日誌」から計算しています。過去データでの検証では、似た日の釣果から当日の釣果の有無をある程度見分けられました（AUC 約0.72）。ただし今は1シーズン分のため、効いているのは主に時期の近さです。</p>`;
+    $('#lab').innerHTML = html;
+    FH.motion.stagger($('#lab'));
   }
 
   /* 🎯 Evidence-backed target: how often it was caught here, where on the pier, how — counted in days. */

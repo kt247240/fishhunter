@@ -9,6 +9,7 @@
   const DAY = 86400e3;
   let intel = null;
   let hot = null;
+  let book = null;
   const evCache = new Map();
 
   /** Long-term evidence (data/hotspots.json: 60 days of catch DAYS per spot × species × pier zone). */
@@ -20,8 +21,16 @@
     } catch (_) { /* optional */ }
   }
 
+  async function loadBook() {
+    try {
+      const r = await FH.diag.fetchWithTimeout('data/daybook.json', { cache: 'no-store' }, 10000);
+      const j = await r.json();
+      if (j && Array.isArray(j.days)) book = j;
+    } catch (_) { /* optional */ }
+  }
+
   async function load() {
-    const hp = loadHot();
+    const hp = Promise.all([loadHot(), loadBook()]);
     try { return await loadIntel(); } finally { await hp; }
   }
   async function loadIntel() {
@@ -240,6 +249,8 @@
       return o;
     },
     target, hotRank, hotLoaded: () => !!hot,
+    daybook: () => book,
+    hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,

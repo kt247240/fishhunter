@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { mergeArchive, buildHotspots, coverage } from './archive.mjs';
+import { loadEngine, buildDaybook } from './daybook.mjs';
 import { extractCatches, extractTime, extractColorNotes, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
@@ -333,13 +334,52 @@ function observations(list) {
   return out;
 }
 
-async function previousArchive() {
-  const local = path.join(path.dirname(OUT), 'archive.json');
-  const url = process.env.PREV_INTEL_URL && process.env.PREV_INTEL_URL.replace(/intel\.json$/, 'archive.json');
+async function previousArchive(name = 'archive.json') {
+  const local = path.join(path.dirname(OUT), name);
+  const url = process.env.PREV_INTEL_URL && process.env.PREV_INTEL_URL.replace(/intel\.json$/, name);
   if (url) {
     try { const r = await get(url + '?t=' + Date.now(), 'application/json'); if (r.ok) return await r.json(); } catch (_) { /* first run */ }
   }
   try { return JSON.parse(fs.readFileSync(local, 'utf8')); } catch (_) { return { records: [] }; }
+}
+
+/** Past weather since `start` (historical-forecast + marine archive) for spots with a real record. */
+async function pastWeather(FH, spots, start) {
+  const range = { start_date: start, end_date: new Date(NOW + 9 * 3600e3).toISOString().slice(0, 10) };
+  const q = (o) => Object.entries(o).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  const json = async (url) => { const r = await get(url, 'application/json'); if (!r.ok) throw new Error('HTTP ' + r.status); return [].concat(await r.json()); };
+  const wx = await json('https://historical-forecast-api.open-meteo.com/v1/forecast?' + q({
+    latitude: spots.map((s) => s.lat).join(','), longitude: spots.map((s) => s.lon).join(','),
+    hourly: 'temperature_2m,precipitation,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code',
+    wind_speed_unit: 'ms', timezone: 'Asia/Tokyo', timeformat: 'unixtime', ...range
+  }));
+  const data = { wx: {}, marine: {} };
+  wx.forEach((row, i) => { const h = row.hourly; data.wx[spots[i].id] = { time: h.time.map((t) => t * 1000), temp: h.temperature_2m, precip: h.precipitation, pressure: h.pressure_msl, cloud: h.cloud_cover, wind: h.wind_speed_10m, windDir: h.wind_direction_10m, gust: h.wind_gusts_10m, code: h.weather_code }; });
+  const sea = spots.filter((s) => s.water === 'sea');
+  if (sea.length) {
+    const pts = sea.map((s) => { const f = ((s.face || 0) * Math.PI) / 180; return { lat: s.lat + 0.04 * Math.cos(f), lon: s.lon + 0.05 * Math.sin(f) }; });
+    const mar = await json('https://marine-api.open-meteo.com/v1/marine?' + q({
+      latitude: pts.map((p) => p.lat.toFixed(3)).join(','), longitude: pts.map((p) => p.lon.toFixed(3)).join(','),
+      hourly: 'wave_height,wave_direction,wave_period,swell_wave_height,sea_surface_temperature',
+      timezone: 'Asia/Tokyo', timeformat: 'unixtime', ...range
+    }));
+    mar.forEach((row, i) => { const h = row.hourly; data.marine[sea[i].id] = { time: h.time.map((t) => t * 1000), wave: h.wave_height, waveDir: h.wave_direction, wavePeriod: h.wave_period, swell: h.swell_wave_height, sst: h.sea_surface_temperature }; });
+  }
+  return data;
+}
+
+async function writeDaybook(archive, hot) {
+  const FH = loadEngine(root);
+  const ids = Object.entries(hot.spots).filter(([id, S]) => id[0] !== '@' && S.reportDays >= 10 && FH.spotById[id]).map(([id]) => id);
+  if (!ids.length) return;
+  let data = null;
+  const first = Math.min(...archive.records.filter((x) => x.s.some((s) => ids.includes(s))).map((x) => x.d));
+  const start = new Date(Math.max(first - 4 * DAY, NOW - 400 * DAY, Date.parse('2022-01-01')) + 9 * 3600e3).toISOString().slice(0, 10);
+  try { data = await pastWeather(FH, ids.map((id) => FH.spotById[id]), start); } catch (e) { console.error('past weather:', e.message); }
+  const prev = await previousArchive('daybook.json');
+  const book = buildDaybook(FH, archive, ids, data, prev, NOW);
+  fs.writeFileSync(path.join(path.dirname(OUT), 'daybook.json'), JSON.stringify(book));
+  console.log(`daybook: ${book.days.length} spot-days for ${ids.join(', ')} (${book.days.filter((d) => d.c).length} with conditions)`);
 }
 
 async function main() {
@@ -376,6 +416,7 @@ async function main() {
   fs.writeFileSync(path.join(path.dirname(OUT), 'archive.json'), JSON.stringify(archive));
   const hot = buildHotspots(archive, NOW, { speciesIds: ctx.FH.SPECIES.map((s) => s.id) });
   fs.writeFileSync(path.join(path.dirname(OUT), 'hotspots.json'), JSON.stringify(hot));
+  try { await writeDaybook(archive, hot); } catch (e) { console.error('daybook:', e.message); }
   console.log(`archive: ${archive.records.length} records (${HISTORY.length} back-filled) → hotspots for ${Object.keys(hot.spots).length} spots`);
   console.log(JSON.stringify({ out: OUT, reports: list.length, catches: list.reduce((n, r) => n + r.catches.length, 0), sources: health }, null, 1));
 }

@@ -1,5 +1,7 @@
 // Catch-intel extractor tests (synthetic samples in the formats seen in public feeds).
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import fs from 'node:fs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
@@ -138,6 +140,25 @@ test('archive: zones, merge, and evidence counted in days', () => {
   assert.equal(P.d14, 1);
   assert.equal(P.zones[0].z, 'm6:i'); assert.equal(P.zones[0].days, 2);
   assert.equal(h.rank.aji[0].spot, 'naoetsu');
+});
+
+test('insight: analogs prefer same season + similar sea; season flow; crowd', () => {
+  const ctx = {}; ctx.globalThis = ctx; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(new URL('../js/insight.js', import.meta.url), 'utf8'), ctx);
+  const I = ctx.FH.insight;
+  const day = (d, wv, f, v = null, dow = 3) => ({ s: 'x', d, dow, v, c: { wv, wd: 3, sst: 25, prev: wv, on: 0 }, f });
+  const book = { days: [
+    day('2026-09-20', 1.2, { aji: [30, 25, 'm6:i'] }, 120, 6), day('2026-09-19', 0.3, { saba: [5, 30, null] }, 60, 5),
+    day('2026-07-01', 1.2, { saba: [9, 30, null] }, 50, 3), day('2026-09-22', 1.1, { aji: [10, 24, 'm6:i'] }, 70, 1)
+  ] };
+  const near = I.analogs(book, 'x', { wv: 1.2, wd: 3, sst: 25, prev: 1.2, on: 0 }, '2026-09-24', 2);
+  assert.equal(near.map((n) => n.e.d).join(), '2026-09-22,2026-09-20');
+  const lf = I.lift(book, 'x', near, 1);
+  assert.equal(lf[0].sp, 'aji'); assert.equal(lf[0].hit, 2); assert.equal(lf[0].zone, 'm6:i');
+  const ss = I.season(book, 'x', 'aji', 4, Date.parse('2026-09-24T12:00:00+09:00'));
+  assert.equal(ss[3].hit, 1); assert.equal(ss[2].hit, 1); assert.equal(ss[2].days, 2);
+  assert.equal(I.crowd(book, 'x', 6, Date.parse('2026-09-24T12:00:00+09:00')).sat, 120);
+  assert.equal(I.zoneLabel('m6:i'), '600〜699m 内側');
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);
