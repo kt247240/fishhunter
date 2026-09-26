@@ -464,15 +464,6 @@
       "url": "https://seikotei.com/feed/"
     },
     {
-      "id": "yuyuflyfisher",
-      "name": "ゆうゆうフライフィッシャー（犀川ほか）",
-      "type": "blog",
-      "area": "中信",
-      "spots": [],
-      "mode": "rss",
-      "url": "http://yuyuflyfisher.blog.fc2.com/?xml"
-    },
-    {
       "id": "kayumikyo",
       "name": "鮎釣り日記（千曲川）",
       "type": "blog",
@@ -498,17 +489,6 @@
       "spots": [],
       "mode": "rss",
       "url": "https://dotabare.exblog.jp/index.xml"
-    },
-    {
-      "id": "taikoumaru",
-      "name": "鯛紅丸（新潟東港・遊漁船）",
-      "type": "boat",
-      "area": "下越",
-      "spots": [
-        "niigata-east"
-      ],
-      "mode": "rss",
-      "url": "http://niigatataikoumaru.blog40.fc2.com/?xml"
     },
     {
       "id": "hoshinmaru5",
