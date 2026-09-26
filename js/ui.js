@@ -70,7 +70,7 @@
   }
 
   let toastTimer = null;
-  function toast(msg, ms = 2600) {
+  function toast(msg, ms = 4000) {
     const el = $('#toast');
     if (!el) return;
     el.textContent = msg; el.hidden = false;
@@ -240,7 +240,11 @@
       const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
       const i = Math.floor(((x - G.pad.l) / G.pw) * state.series.length);
       if (i < 0 || i >= state.series.length) return onLeave();
-      if (i !== state.hover) { state.hover = i; draw(); showTip(i); }
+      if (i !== state.hover) {
+        state.hover = i; draw(); showTip(i);
+        // Light haptic tick per hour while scrubbing with a finger.
+        if (ev.pointerType === 'touch' && navigator.vibrate) { try { navigator.vibrate(4); } catch (_) { /* unsupported */ } }
+      }
     }
     function onLeave() { state.hover = null; if (tip) tip.hidden = true; draw(); }
 
@@ -260,7 +264,13 @@
         const step = (now) => { state.prog = Math.min(1, (now - t0) / 1100); state.prog = 1 - Math.pow(1 - state.prog, 3); draw(); if (state.prog < 1) state.anim = requestAnimationFrame(step); };
         state.prog = 0; state.anim = requestAnimationFrame(step);
       },
-      redraw: draw
+      redraw: draw,
+      /** Show the crosshair + readout for hour index i (e.g. from the best strip). */
+      focus(i) {
+        if (!state.series[i]) return;
+        state.hover = i; state.prog = 1; draw(); showTip(i);
+        canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     };
   }
 

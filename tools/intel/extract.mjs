@@ -179,6 +179,8 @@ export function extractNotices(title, text) {
   const out = [];
   for (const s of t.split(/。|!|！/)) {
     const x = s.trim();
+    // Skip catch lines that merely mention a closure time ("閉鎖時にはメジナ50匹").
+    if (/\d+\s*(匹|本|杯|cm)/i.test(x)) continue;
     if (x.length >= 6 && x.length <= 90 && KEY.test(x) && !out.includes(x)) out.push(x);
     if (out.length >= 3) break;
   }

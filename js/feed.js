@@ -145,7 +145,9 @@
 
   /** Recent notices (openings, closures, stocking…) for a spot or its area. */
   function notices(spot, days = 30, n = 3) {
-    const rs = reportsFor((r) => r.notices && r.notices.length && (r.spots.includes(spot.id) || (!r.spots.length && r.area === spot.area)), days);
+    // Managed-area operational notices (closures, hours) go stale fast; co-op notices stay relevant longer.
+    const rs = reportsFor((r) => r.notices && r.notices.length && (r.spots.includes(spot.id) || (!r.spots.length && r.area === spot.area)) &&
+      (r.type !== 'official' || Date.now() - r.date <= 3 * DAY) && !r.notices.every((n) => /\d+\s*(匹|本|杯|cm)/i.test(n)), days);
     return rs.slice(0, n).map((r) => ({ text: r.notices[0], src: r.srcName, date: r.date, url: r.url }));
   }
 

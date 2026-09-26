@@ -14,6 +14,7 @@
   <script>try{var t=localStorage.getItem('fh.theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 </head>
 <body>
+  <div class="ptr" id="ptr" aria-hidden="true"><svg viewBox="0 0 24 48"><path d="M12 0 V30" stroke="currentColor" stroke-width="1.5"/><path d="M12 30 v8 a5 5 0 1 1 -8 -4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>引っぱって更新</span></div>
   <div id="boot" class="boot" aria-hidden="true">
     <div class="boot-sonar"><i></i><i></i><i></i><b></b></div>
     <div class="boot-logo">FISH<span>HUNTER</span></div>
@@ -29,6 +30,11 @@
       <label class="pick"><span>釣り場</span><select id="spotPick" aria-label="釣り場"></select></label>
       <label class="pick"><span>ターゲット</span><select id="huntTarget" aria-label="ターゲット魚種"></select></label>
     </div>
+    <button class="mini-bar" id="miniBar" type="button" aria-label="釣り場の概要（タップで上へ）" hidden>
+      <span class="mb-score num" id="mbScore">–</span>
+      <span class="mb-text"><b id="mbTitle">—</b><small id="mbSub"></small></span>
+      <span class="mb-up" aria-hidden="true">↑</span>
+    </button>
     <div class="top-actions">
       <button class="icon-btn" id="btnRefresh" title="最新データを取得" aria-label="最新データを取得"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
       <button class="icon-btn" id="btnTheme" title="日中モード切替" aria-label="日中モード切替"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
@@ -67,13 +73,16 @@
             <div>
               <div class="eyebrow" id="spotMeta">—</div>
               <h1 id="spotName">—</h1>
-              <div class="chips" id="spotChips"></div>
+              <div class="chips scroll-x" id="spotChips"></div>
             </div>
             <div class="ring-wrap" id="spotScore" aria-live="polite"></div>
           </div>
           <p class="score-note">スコアは条件の一致度です。釣れる確率ではありません。</p>
           <div id="safety" class="safety" hidden></div>
-          <div class="factors" id="factors"></div>
+          <details class="more" id="factorsBox">
+            <summary><span>スコアの内訳</span><span class="more-sum" id="factorSummary"></span></summary>
+            <div class="factors" id="factors"></div>
+          </details>
           <div class="windows">
             <h3>次の時合 <small>72時間以内</small></h3>
             <ol id="windows" data-stagger class="window-list"></ol>
@@ -106,6 +115,7 @@
             <button data-h="24" type="button">24h</button><button data-h="72" type="button" class="on">72h</button>
           </div>
         </div>
+        <div class="best-strip" id="bestStrip" role="group" aria-label="時間ごとの釣果スコア"></div>
         <div class="chart-box"><canvas id="chart" aria-label="釣果スコアの時間変化グラフ" role="img"></canvas><div class="chart-tip" id="chartTip" hidden></div></div>
         <div class="legend"><span><i class="lg score"></i>釣果スコア</span><span><i class="lg env"></i><em id="legendEnv">波高</em></span><span><i class="lg maz"></i>マズメ</span><span><i class="lg sol"></i>ソルナー</span><span><i class="lg night"></i>夜間</span></div>
       </article>
@@ -116,6 +126,12 @@
       <div class="map-layout">
         <div class="card map-card">
           <div id="map" class="map"><div class="map-fallback">地図を読み込み中…</div></div>
+          <div class="map-time">
+            <button class="icon-btn" id="mapPlay" type="button" aria-label="時間を再生">▶</button>
+            <input type="range" id="mapHour" min="0" max="71" value="0" step="1" aria-label="表示する時刻">
+            <span class="map-hour num" id="mapHourLabel">今</span>
+            <button class="btn sm" id="btnWind" type="button" aria-pressed="false">🌬 風</button>
+          </div>
           <div class="map-tools">
             <div class="seg" id="prefFilter"><button data-pref="" class="on" type="button">全域</button><button data-pref="新潟" type="button">新潟</button><button data-pref="長野" type="button">長野</button></div>
             <button class="btn sm" id="btnLocate" type="button">現在地から距離</button>
@@ -263,5 +279,6 @@
   <script src="js/share.js"></script>
   <script src="js/prefs.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/ptr.js"></script>
 </body>
 </html>

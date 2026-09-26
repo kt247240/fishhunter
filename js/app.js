@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v21.2.0 COMMUNITY';
+  const VERSION = 'v22.0.0 UI POLISH';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -98,6 +98,8 @@
       render();
     });
     FH.motion.tabIndicator($('#tabbar'));
+    if (view !== 'map' && playTimer) togglePlay(false);
+    if (view !== 'now') { $('#miniBar').hidden = true; document.querySelector('.topbar').classList.remove('compact'); }
     if (view === 'map') FH.map.invalidate();
     if (view === 'now' && chart) chart.redraw();
   }
@@ -121,7 +123,10 @@
     const d = state.data;
     const el = $('#dataStamp');
     if (!d) { el.textContent = 'データ準備中…'; return; }
-    el.textContent = `気象 ${ago(d.fetchedAt)}更新${d.stale && (d.stale.wx || d.stale.marine) ? '（一部キャッシュ）' : ''}`;
+    const old = Date.now() - d.fetchedAt > 3 * HOUR;
+    const off = navigator.onLine === false;
+    el.textContent = `${off ? 'オフライン・' : ''}気象 ${ago(d.fetchedAt)}更新${d.stale && (d.stale.wx || d.stale.marine) ? '（一部キャッシュ）' : ''}${old ? ' ⚠ 古いデータ' : ''}`;
+    el.classList.toggle('stale', old || off);
   }
 
   function banner(msg) {
@@ -170,6 +175,11 @@
       return `<div class="factor"><span class="name">${esc(f.label)}</span><span class="bar${pos ? '' : ' neg'}"><i style="width:${w}%;--i:${i}"></i></span>
         <span class="imp ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}${f.impact.toFixed(1)}</span><span class="note">${esc(f.note || '')}</span></div>`;
     }).join('') : '<p class="muted">この地点の気象データがありません</p>';
+    if (cur) {
+      const fs = cur.factors.filter((f) => f.key !== 'season').slice().sort((a, b) => b.impact - a.impact);
+      const up = fs.filter((f) => f.impact > 0.5).slice(0, 2), down = fs.filter((f) => f.impact < -0.5).slice(-1);
+      $('#factorSummary').innerHTML = [...up.map((f) => `<i class="fs up">＋${esc(f.label)}</i>`), ...down.map((f) => `<i class="fs down">－${esc(f.label)}</i>`)].join('');
+    } else $('#factorSummary').innerHTML = '';
 
     // Windows
     const ser = E.series(sp, fish, d, now, 72);
@@ -211,6 +221,10 @@
     else if (w) sub = `次の時合は${range(w.start, w.end, now)}（ピーク ${w.peak}）`;
     else sub = '72時間以内に目立つ時合はありません。別の釣り場・魚種も検討を';
     $('#heroSub').textContent = sub;
+    $('#mbScore').textContent = cur ? cur.score : '–';
+    $('#mbScore').className = 'mb-score num tone-' + tone(cur && cur.score);
+    $('#mbTitle').textContent = `${short(sp.name)} × ${short(fish.name)}`;
+    $('#mbSub').textContent = cur ? `${E.verdict(cur.score).label}${w ? ' ・ 次 ' + range(w.start, w.end, now) : ''}` : '';
     const tac = cur ? E.tactics(sp, fish, c) : null;
     $('#heroMeta').innerHTML = cur ? [
       `<span class="chip tone-${tone(cur.score)}">SCORE <b data-count="${cur.score}">${cur.score}</b></span>`,
@@ -261,12 +275,12 @@
       return;
     }
     const max = Math.max(...rd.list.map((x) => x.fish || x.reports));
-    const rows = rd.list.slice(0, 6).map((x, i) => {
+    const rows = rd.list.slice(0, 10).map((x, i) => {
       const m = Object.entries(x.methods || {}).sort((a, b) => b[1] - a[1])[0];
       const t = Object.entries(x.times || {}).sort((a, b) => b[1] - a[1])[0];
       const on = x.sp && x.sp === fish.id;
       const pickable = x.sp && sp.species.includes(x.sp);
-      return `<li class="rd-row${on ? ' on' : ''}${pickable ? ' pick' : ''}" ${pickable ? `data-rsp="${x.sp}"` : ''} style="--i:${i}${x.sp ? ';--c:' + FH.speciesById[x.sp].color : ''}">
+      return `<li class="rd-row${on ? ' on' : ''}${pickable ? ' rd-pick' : ''}" ${pickable ? `data-rsp="${x.sp}"` : ''} style="--i:${i}${x.sp ? ';--c:' + FH.speciesById[x.sp].color : ''}">
         <span class="rd-name">${esc(shortName(x.name))}</span>
         <span class="rd-bar"><i style="width:${Math.max(6, ((x.fish || x.reports) / max) * 100)}%"></i></span>
         <span class="rd-val num">${x.fish ? x.fish + '匹' : x.reports + '件'}${x.trend ? `<i class="trend ${x.trend}" title="先週 ${x.prev}">${{ up: '↑', down: '↓', flat: '→', new: 'NEW' }[x.trend]}</i>` : ''}</span>
@@ -298,7 +312,10 @@
     }
     const nts = FH.feed.notices(sp);
     const ntsHtml = nts.length ? `<div class="rd-notices"><h4 class="rd-h">📢 お知らせ（漁協・管理者）</h4>${nts.map((n) => `<a class="rd-notice" href="${esc(n.url)}" target="_blank" rel="noopener nofollow"><b>${md(n.date)}</b> ${esc(n.text)} <span class="muted small">— ${esc(n.src)}</span></a>`).join('')}</div>` : '';
-    $('#radar').innerHTML = `${ntsHtml}<ol class="rd-list" data-stagger>${rows}</ol>${tip}${pierHtml}${rec ? `<h4 class="rd-h">最新の釣果</h4><ul class="rd-reps">${rec}</ul>` : ''}
+    const rowArr = rows.split('</li>').filter((x) => x.trim()).map((x) => x + '</li>');
+    const listHtml = `<ol class="rd-list" data-stagger>${rowArr.slice(0, 5).join('')}</ol>` +
+      (rowArr.length > 5 ? `<details class="more"><summary><span>ほかの魚 ${rowArr.length - 5}種</span></summary><ol class="rd-list">${rowArr.slice(5).join('')}</ol></details>` : '');
+    $('#radar').innerHTML = `${ntsHtml}${listHtml}${tip}${pierHtml}${rec ? `<details class="more"><summary><span>最新の釣果 ${FH.feed.recent(sp, 4).length}件</span></summary><ul class="rd-reps">${rec}</ul></details>` : ''}
       <p class="muted small">公開情報を自動で集計した目安です。釣り場全体の傾向であり、特定の場所での釣果を保証するものではありません。</p>`;
     FH.motion.stagger($('#radar'));
   }
@@ -359,6 +376,23 @@
     const ser = E.series(sp, fish, state.data, from, state.chartH + 3);
     $('#legendEnv').textContent = sp.water === 'sea' ? '波高' : '降水量';
     chart.update(ser, { water: sp.water, now });
+    renderBestStrip(ser, now);
+  }
+
+  /** A one-glance "when" strip: one cell per hour, colour = score, best window called out. */
+  function renderBestStrip(ser, now) {
+    const el = $('#bestStrip');
+    const start = Math.max(0, ser.findIndex((p) => p.t + HOUR > now));
+    const cells = ser.slice(start);
+    const best = E.windows(cells, { min: 0, limit: 1 })[0];
+    el.innerHTML = `<div class="bs-head">${best ? `<b>ベスト ${range(best.start, best.end, now)}</b><span class="chip tone-${tone(best.peak)}">ピーク ${best.peak}</span>` : '<span class="muted small">今後72時間のスコア</span>'}</div>
+      <div class="bs-cells" style="--n:${cells.length}">${cells.map((p, i) => {
+        const h = FH.astro.jstParts(new Date(p.t)).h;
+        const inBest = best && p.t >= best.start && p.t < best.end;
+        const danger = p.safety && p.safety.level === 2;
+        return `<button type="button" class="bs-cell tone-${tone(p.score)}${inBest ? ' best' : ''}${danger ? ' danger' : ''}${h === 0 ? ' day' : ''}" style="--v:${p.score == null ? 0 : Math.max(0.08, Math.min(1, (p.score - 30) / 65)).toFixed(2)}" data-ci="${start + i}" aria-label="${dayLabel(p.t, now)} ${h}時 スコア ${p.score == null ? 'なし' : p.score}${danger ? ' 危険' : ''}"></button>`;
+      }).join('')}</div>
+      <div class="bs-axis">${cells.map((p) => { const h = FH.astro.jstParts(new Date(p.t)).h; return h === 0 ? `<span style="--x:${cells.indexOf(p)}">${md(p.t)}</span>` : ''; }).join('')}</div>`;
   }
 
   function renderPicks() {
@@ -459,15 +493,56 @@
     const el = $('#map');
     const ok = await FH.map.ensure(el);
     if (!ok) return;
-    const byId = Object.fromEntries(ranks.map((r) => [r.spot.id, r]));
-    const items = FH.SPOTS.filter((s) => !state.pref || s.pref === state.pref).map((s) => {
-      const r = byId[s.id];
-      return { spot: s, score: r && r.best ? r.best.peak : null, label: r ? `${fish.name} ピーク ${r.best ? r.best.peak : '–'}` : `${fish.name}の対象外` };
-    });
     const first = !el.dataset.fitted || el.dataset.fitted !== state.pref;
-    FH.map.render(items, state.spotId, (id) => { select(id); show('map'); FH.map.focus(spot()); }, first);
+    paintMapHour(first);
     el.dataset.fitted = state.pref;
     if (state.userPos) FH.map.showUser(state.userPos);
+  }
+
+  /* Map time travel: per-spot 72h series for the target species, cached per data × species × hour. */
+  let mapCache = { key: null, series: {} };
+  function mapSeries() {
+    const fish = species();
+    const t0 = Math.floor(state.now / HOUR) * HOUR;
+    const key = state.data.fetchedAt + ':' + fish.id + ':' + t0 + ':' + (FH.feed.loaded() ? 1 : 0);
+    if (mapCache.key !== key) {
+      const series = {};
+      FH.SPOTS.filter((s) => s.species.includes(fish.id)).forEach((s) => { series[s.id] = E.series(s, fish, state.data, t0, 72); });
+      mapCache = { key, series, t0 };
+    }
+    return mapCache;
+  }
+  function paintMapHour(fit) {
+    if (!state.data || !FH.map.ready()) return;
+    const fish = species();
+    const { series, t0 } = mapSeries();
+    const h = state.mapHour || 0;
+    const t = t0 + h * HOUR;
+    $('#mapHourLabel').textContent = h === 0 ? '今' : `${dayLabel(t)} ${hm(t)}`;
+    const items = FH.SPOTS.filter((s) => !state.pref || s.pref === state.pref).map((s) => {
+      const p = series[s.id] && series[s.id][h];
+      const danger = p && p.safety && p.safety.level === 2;
+      return { spot: s, score: p ? p.score : null, label: p ? `${fish.name} ${p.score}${danger ? ' ⚠危険' : ''} ・ ${hm(t)}` : `${fish.name}の対象外` };
+    });
+    FH.map.render(items, state.spotId, (id) => { select(id); show('map'); FH.map.focus(spot()); }, fit);
+    // Wind for the same hour at every spot (interpolated into particles by the map layer).
+    const pts = FH.SPOTS.map((s) => {
+      const c = E.conditions(s, t + HOUR / 2, state.data);
+      return { lat: s.lat, lon: s.lon, speed: c.wind, dir: c.windDir };
+    });
+    FH.map.setWind(pts);
+  }
+  let playTimer = null;
+  function togglePlay(force) {
+    const on = force != null ? force : !playTimer;
+    clearInterval(playTimer); playTimer = null;
+    $('#mapPlay').textContent = on ? '❚❚' : '▶';
+    if (!on) return;
+    playTimer = setInterval(() => {
+      state.mapHour = ((state.mapHour || 0) + 1) % 72;
+      $('#mapHour').value = state.mapHour;
+      paintMapHour(false);
+    }, 450);
   }
 
   function renderFacts() {
@@ -781,6 +856,8 @@
       if (go) { show(go.dataset.goto); g.scrollTo({ top: 0 }); return; }
       const card = e.target.closest('.pick-card');
       if (card) { select(card.dataset.spot, card.dataset.sp, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      const bc = e.target.closest('.bs-cell');
+      if (bc && chart) { chart.focus(+bc.dataset.ci); return; }
       const rsp = e.target.closest('[data-rsp]');
       if (rsp) { select(null, rsp.dataset.rsp); return; }
       const wk = e.target.closest('.wk-row');
@@ -818,6 +895,15 @@
       state.pref = b.dataset.pref;
       $$('#prefFilter button').forEach((x) => x.classList.toggle('on', x === b));
       state.dirty.add('map'); render();
+    });
+    $('#mapHour').addEventListener('input', (e) => { state.mapHour = +e.target.value; togglePlay(false); paintMapHour(false); });
+    $('#mapPlay').addEventListener('click', () => togglePlay());
+    $('#btnWind').addEventListener('click', (e) => {
+      const on = !FH.map.windOn();
+      FH.map.showWind(on);
+      e.currentTarget.setAttribute('aria-pressed', String(on));
+      e.currentTarget.classList.toggle('on', on);
+      if (on) paintMapHour(false);
     });
     $('#btnLocate').addEventListener('click', () => {
       if (!navigator.geolocation) return FH.ui.toast('位置情報に対応していません');
@@ -922,6 +1008,16 @@
     syncSpecies();
     bind();
     g.addEventListener('resize', () => FH.motion.tabIndicator($('#tabbar')));
+    if (g.IntersectionObserver) {
+      new IntersectionObserver((es) => {
+        const show = !es[0].isIntersecting && state.view === 'now';
+        $('#miniBar').hidden = !show;
+        document.querySelector('.topbar').classList.toggle('compact', show && g.innerWidth <= 720);
+      }, { rootMargin: '-120px 0px 0px 0px' }).observe($('#hero'));
+    }
+    $('#miniBar').addEventListener('click', () => g.scrollTo({ top: 0, behavior: 'smooth' }));
+    FH.app.refresh = () => loadData(true);
+    g.addEventListener('offline', stamp);
     const view = ['now', 'map', 'hunt', 'log', 'sys'].includes(state.view) ? state.view : 'now';
     show(view);
     setTimeout(() => $('#boot').classList.add('done'), 350);
