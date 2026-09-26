@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v30.0.0 HONEST';
+  const VERSION = 'v30.1.0 LEARN+WATCH';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -1083,8 +1083,8 @@
     const top = (p) => (p.length ? p[0][0] : null);
     const lines = [];
     if (top(a.byLight)) lines.push(`<b>${esc(top(a.byLight))}</b>に強い`);
-    if (top(a.byTide)) lines.push(`<b>${esc(top(a.byTide))}</b>で実績多`);
-    if (top(a.byPressure)) lines.push(`気圧<b>${esc(top(a.byPressure))}</b>時に好調`);
+    if (a.medTemp != null && a.nTemp >= 3) lines.push(`水温<b>${a.medTemp}℃</b>前後で実績`);
+    if (a.byAfter.length && a.byAfter[0][0] === '時化後') lines.push('<b>時化後</b>に強い');
     if (top(a.byColor)) lines.push(`カラーは<b>${esc(top(a.byColor))}</b>`);
     el.innerHTML = reviewHtml(speciesId) + `
       <div class="stat-row">
@@ -1094,7 +1094,7 @@
         <div class="stat"><b>${a.avgScore == null ? '–' : a.avgScore}</b><span>平均スコア</span></div>
       </div>
       ${lines.length ? `<div class="insight">あなたの傾向：${lines.join('、')}。${a.entries >= 3 ? '条件が一致するとスコアに最大+6の補正がかかります。' : 'あと' + (3 - a.entries) + '件でスコア補正が有効になります。'}</div>` : ''}
-      ${dist('時間帯', a.byLight)}${dist('潮回り', a.byTide)}${dist('気圧', a.byPressure)}
+      ${dist('時間帯', a.byLight)}${dist('水温', a.byTemp)}${dist('時化後かどうか', a.byAfter)}
       ${dist('釣り場', a.bySpot, (id) => (FH.spotById[id] || {}).name || id)}
       ${!speciesId ? dist('魚種', a.bySpecies, (id) => (FH.speciesById[id] || {}).name || id) : ''}`;
   }

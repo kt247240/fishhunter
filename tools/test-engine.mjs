@@ -218,4 +218,17 @@ test('catch log: ボウズ trips count for the review but not for learned patter
   L.all().filter((x) => x.speciesId === 'kisu').forEach((x) => L.remove(x.id));
 });
 
+test('personal pattern learns 時化後 and water temperature, not tide', () => {
+  const L = FH.catchlog;
+  const base = Date.parse('2026-09-01T06:00:00+09:00');
+  for (let k = 0; k < 4; k++) L.add({ t: base + k * 86400e3, spotId: 'naoetsu', speciesId: 'mejina', count: 2, cond: { light: '日中', tide: ['大潮', '小潮', '中潮', '長潮'][k], waterTemp: 22 + k * 0.3, wave: 0.6, wavePrev: 1.6 } });
+  const c = { light: { label: '日中' }, tide: { name: '若潮' }, waterTemp: 22.4, wave: 0.7, wavePrev: 1.5, dp3: 0 };
+  const b = L.personalBoost('mejina', c);
+  assert.ok(b && b.bonus >= 5, JSON.stringify(b));
+  assert.match(b.note, /時化後/); assert.match(b.note, /水温/); assert.doesNotMatch(b.note, /大潮|若潮|中潮/);
+  const calm = L.personalBoost('mejina', Object.assign({}, c, { wavePrev: 0.5, waterTemp: 27 }));
+  assert.ok(!calm || !/時化後|水温/.test(calm.note));
+  L.all().filter((x) => x.speciesId === 'mejina').forEach((x) => L.remove(x.id));
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

@@ -36,7 +36,7 @@
     return {
       light: c.light && c.light.label, tide: c.tide && c.tide.name, moonAge: r1(c.moonAge),
       temp: r1(c.temp), waterTemp: r1(c.waterTemp), waterTempEst: !!c.waterTempEst,
-      wind: r1(c.wind), windDir: c.windDir, wave: r1(c.wave), pressure: r1(c.pressure), dp3: r1(c.dp3),
+      wind: r1(c.wind), windDir: c.windDir, wave: r1(c.wave), wavePrev: r1(c.wavePrev), pressure: r1(c.pressure), dp3: r1(c.dp3),
       cloud: c.cloud, code: c.code, rain24: r1(c.rain24), murk: r1(c.murk), score: scoreVal == null ? null : scoreVal
     };
   }
@@ -67,6 +67,10 @@
   }
 
   const caught = (x) => (x.count ?? 1) > 0; // count 0 = ボウズ (a logged trip without a catch)
+  // Findings on the pier logs: 時化後 and water temperature matter; tide name and pressure do not.
+  const afterBlow = (cd) => (cd && cd.wavePrev != null && cd.wave != null ? (cd.wavePrev >= 1.2 && cd.wave < cd.wavePrev - 0.1 ? '時化後' : '平常') : null);
+  const tempBand = (t) => (t == null ? null : `${Math.floor(t / 2) * 2}〜${Math.floor(t / 2) * 2 + 2}℃`);
+  const median = (xs) => { const a = xs.slice().sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : null; };
   const pressureBucket = (dp3) => (dp3 == null ? null : dp3 <= -0.5 ? '下降' : dp3 >= 0.5 ? '上昇' : '安定');
   function tally(list, fn) {
     const m = {};
@@ -88,6 +92,10 @@
       avgSize: sizes.length ? Math.round((sizes.reduce((a, b) => a + b, 0) / sizes.length) * 10) / 10 : null,
       byLight: tally(list, (x) => x.cond && x.cond.light),
       byTide: tally(list, (x) => x.cond && x.cond.tide),
+      byAfter: tally(list, (x) => afterBlow(x.cond)),
+      byTemp: tally(list, (x) => x.cond && tempBand(x.cond.waterTemp)),
+      medTemp: median(list.map((x) => x.cond && x.cond.waterTemp).filter((v) => v != null)),
+      nTemp: list.filter((x) => x.cond && x.cond.waterTemp != null).length,
       byPressure: tally(list, (x) => x.cond && pressureBucket(x.cond.dp3)),
       bySpot: tally(list, (x) => x.spotId),
       bySpecies: tally(list, (x) => x.speciesId),
@@ -99,18 +107,22 @@
     return r;
   }
 
-  /** Bonus (0..6) when the current conditions match your proven pattern. Needs ≥3 entries. */
+  /**
+   * Bonus (0..6) when the current conditions match your proven pattern (≥3 catches): the light phase
+   * you catch in, 時化後 if most of your catches came after a blow, and water within ±1.5 ℃ of your
+   * typical catch temperature. (Tide and pressure were dropped: no effect on the pier logs.)
+   */
   function personalBoost(speciesId, c) {
     const a = analyze(speciesId);
     if (a.entries < 3 || !c) return null;
     const share = (pairs, k) => { const tot = pairs.reduce((s, p) => s + p[1], 0); const hit = pairs.find((p) => p[0] === k); return tot && hit ? hit[1] / tot : 0; };
-    const sl = share(a.byLight, c.light && c.light.label);
-    const st = share(a.byTide, c.tide && c.tide.name);
-    const sp = share(a.byPressure, pressureBucket(c.dp3));
     let bonus = 0; const why = [];
+    const sl = share(a.byLight, c.light && c.light.label);
     if (sl >= 0.4) { bonus += 3 * sl; why.push(`${c.light.label}（実績の${Math.round(sl * 100)}%）`); }
-    if (st >= 0.4) { bonus += 2 * st; why.push(`${c.tide.name}（${Math.round(st * 100)}%）`); }
-    if (sp >= 0.5) { bonus += 1.5 * sp; why.push(`気圧${pressureBucket(c.dp3)}（${Math.round(sp * 100)}%）`); }
+    const ab = afterBlow(c);
+    const sa = share(a.byAfter, '時化後');
+    if (ab === '時化後' && sa >= 0.4) { bonus += 2 * sa; why.push(`時化後（実績の${Math.round(sa * 100)}%）`); }
+    if (a.nTemp >= 3 && c.waterTemp != null && Math.abs(c.waterTemp - a.medTemp) <= 1.5) { bonus += 1.5; why.push(`水温${c.waterTemp.toFixed(1)}℃（あなたの釣果の中心 ${a.medTemp}℃）`); }
     if (!bonus) return null;
     return { bonus: Math.min(6, bonus), note: why.join('・') };
   }

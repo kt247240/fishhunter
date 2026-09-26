@@ -13,6 +13,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: pages
@@ -46,6 +47,25 @@ jobs:
           PREV_INTEL_URL: https://kt247240.github.io/fishhunter/data/intel.json
           YOUTUBE_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: node tools/intel/collect.mjs data/intel.json
+      - name: Data health (opens / updates / closes a GitHub issue)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          node tools/intel/health.mjs data > health.md; code=$?
+          cat health.md >> "$GITHUB_STEP_SUMMARY"
+          title="⚠️ FishHunter データ取得の異常"
+          sig=$(grep '^- ' health.md | grep -v '正常\|前回値' | sort | sha1sum | cut -c1-12)
+          num=$(gh issue list --state open --search "in:title FishHunter データ取得の異常" --json number --jq '.[0].number // empty')
+          if [ "$code" = "2" ]; then
+            printf '\n<!-- sig:%s -->\n' "$sig" >> health.md
+            if [ -z "$num" ]; then gh issue create --title "$title" --body-file health.md
+            elif ! gh issue view "$num" --json body,comments --jq '.body, (.comments[].body)' | grep -q "sig:$sig"; then gh issue comment "$num" --body-file health.md; fi
+          elif [ -n "$num" ]; then
+            gh issue close "$num" --comment "✅ 復旧しました（$(date -u +%FT%TZ)）"
+          fi
       - id: pages
         uses: actions/configure-pages@v5
       - name: Assemble site

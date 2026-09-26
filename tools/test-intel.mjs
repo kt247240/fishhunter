@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
 import { dailyMax, drift, skillFor } from './intel/skill.mjs';
+import { calibrate, probability, fitLogistic } from './intel/calibrate.mjs';
+import { check as healthCheck } from './intel/health.mjs';
 import { parseLandings, landingsBySpecies, parseKaikyo, parseKyucho } from './intel/official.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
@@ -231,6 +233,32 @@ test('急潮情報: none vs an active 警戒 notice', () => {
   assert.equal(on.active, true); assert.equal(on.items[0].level, '警戒');
   assert.equal(on.zones.join(), '佐渡東岸,新潟南部');
   assert.match(on.items[0].url, /^https:\/\/www\.pref\.niigata\.lg\.jp\/uploaded\/attachment\/1\.pdf$/);
+});
+
+test('calibration: higher score → higher catch-day rate when the data says so; range is clamped', () => {
+  const rows = [];
+  for (let i = 0; i < 200; i++) { const score = 40 + (i % 50); rows.push({ sp: 'aori', score, caught: (i * 7919) % 100 < (score - 35) * 1.6 }); }
+  for (let i = 0; i < 60; i++) rows.push({ sp: 'aji', score: 60 + (i % 30), caught: i % 10 !== 0 });
+  const cal = calibrate(rows);
+  assert.ok(cal.species.aori.b > 0.3, JSON.stringify(cal.species.aori));
+  assert.ok(probability(cal, 'aori', 85) > probability(cal, 'aori', 50) + 0.3);
+  assert.equal(probability(cal, 'aori', 200), probability(cal, 'aori', cal.species.aori.hi));
+  assert.ok(Math.abs(cal.species.aji.base - 0.9) < 0.01);
+  assert.equal(probability(cal, 'kisu', 70), null);
+  const f = fitLogistic([[0, 1], [0, 0]], {});
+  assert.ok(Math.abs(f.a) < 0.05);
+});
+
+test('data health: pier feeds down or empty are critical; missing API keys are not', () => {
+  const src = (id, ok, count, error) => ({ id, name: id, ok, count, error });
+  const good = { intel: { sources: [src('happyfishing-naoetsu', true, 5), src('happyfishing-higashi', true, 4), src('youtube', false, 0, 'APIキー未設定')] },
+    official: { errors: [] }, book: { days: [1] }, cal: { species: { aji: {} } }, hot: { spots: { a: 1, b: 1 } } };
+  assert.equal(healthCheck(good).problems.length, 0);
+  const bad = JSON.parse(JSON.stringify(good));
+  bad.intel.sources[1] = src('happyfishing-higashi', true, 0);
+  bad.official.errors = ['kaikyo: HTTP 500'];
+  const r = healthCheck(bad);
+  assert.equal(r.problems.length, 2); assert.match(r.problems.join(), /0件/);
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);
