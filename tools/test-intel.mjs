@@ -61,7 +61,7 @@ test('visitor count', () => {
   assert.equal(extractVisitors('本日の入場者数：６６名'), 66);
   assert.equal(extractVisitors('入場者数：１１０'), 110);
 });
-const { youtubeReports } = await import('./intel/collect.mjs');
+const { youtubeReports, instagramReports } = await import('./intel/collect.mjs');
 test('YouTube search items → first-hand shore catch reports only', () => {
   const now = new Date().toISOString();
   const src = { id: 'youtube', name: 'YouTube', type: 'video' };
@@ -77,5 +77,17 @@ test('YouTube search items → first-hand shore catch reports only', () => {
   assert.ok(r[0].spots.includes('naoetsu'));
   assert.equal(r[0].catches.find((c) => c.sp === 'aji').count, 30);
   assert.equal(r[0].author, 'ANONチャンネル');
+});
+test('Instagram hashtag media → catches with permalink, old/boat posts dropped', () => {
+  const now = new Date().toISOString();
+  const src = { id: 'instagram', name: 'Instagram', type: 'sns' };
+  const r = instagramReports(src, [
+    { permalink: 'https://www.instagram.com/p/AAA/', timestamp: now, caption: '今朝の直江津港🎣\nアオリイカ 3杯 胴長15cm #直江津釣り' },
+    { permalink: 'https://www.instagram.com/p/BBB/', timestamp: now, caption: '遊漁船で直江津沖へ マダイ 50cm' },
+    { permalink: 'https://www.instagram.com/p/CCC/', timestamp: '2020-01-01T00:00:00+0000', caption: '直江津でアジ20匹' }
+  ]);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].url, 'https://www.instagram.com/p/AAA/');
+  assert.equal(r[0].catches[0].sp, 'aori'); assert.equal(r[0].catches[0].count, 3);
 });
 console.log(`\nFishHunter intel tests: ${passed} passed`);

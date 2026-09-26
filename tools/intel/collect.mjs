@@ -199,6 +199,58 @@ async function collectYoutube(src) {
   return out;
 }
 
+/* ───────── Instagram Graph API — hashtag search (official) ─────────
+ * recent_media only returns the last 24 h, so we accumulate: carry over the
+ * previous 14 days from the live intel and add what is new. Hashtag ids are
+ * cached in the output to avoid re-searching (30 unique tags / 7 days). */
+export function instagramReports(src, media) {
+  const out = [];
+  for (const m of media || []) {
+    const date = Date.parse(m.timestamp);
+    if (!m.permalink || !isFinite(date) || NOW - date > 14 * DAY) continue;
+    const text = String(m.caption || '');
+    if (BOT_RE.test(text) || BOAT_RE.test(text)) continue;
+    const rep = toReport(src, { title: text.split('\n')[0].slice(0, 60), url: m.permalink, date, text }, {});
+    if (rep.catches.length && (rep.spots.length || rep.area)) out.push(rep);
+  }
+  return out;
+}
+
+async function collectInstagram(src) {
+  const uid = process.env.IG_USER_ID, token = process.env.IG_TOKEN;
+  const ver = process.env.IG_GRAPH_VERSION || 'v21.0';
+  const prev = await previousIntel();
+  const carried = (prev.reports || []).filter((r) => r.src === src.id && NOW - r.date <= 14 * DAY);
+  if (!uid || !token) {
+    if (!carried.length) throw new Error('トークン未設定（IG_USER_ID / IG_TOKEN）');
+    return carried;
+  }
+  const ids = Object.assign({}, (prev.cache && prev.cache.igHashtags) || {});
+  const base = `https://graph.facebook.com/${ver}`;
+  const fresh = [];
+  for (const tag of src.hashtags) {
+    try {
+      if (!ids[tag]) {
+        const r = await get(`${base}/ig_hashtag_search?user_id=${uid}&q=${encodeURIComponent(tag)}&access_token=${encodeURIComponent(token)}`, 'application/json');
+        const j = await r.json();
+        if (j.error) throw new Error(j.error.message);
+        if (j.data && j.data[0]) ids[tag] = j.data[0].id; else continue;
+      }
+      const r = await get(`${base}/${ids[tag]}/recent_media?user_id=${uid}&fields=id,caption,permalink,timestamp,media_type&limit=50&access_token=${encodeURIComponent(token)}`, 'application/json');
+      const j = await r.json();
+      if (j.error) throw new Error(j.error.message);
+      fresh.push(...instagramReports(src, j.data));
+    } catch (e) {
+      if (/token|OAuth|expired|permission/i.test(String(e.message))) throw new Error('Instagram API: ' + e.message);
+    }
+    await sleep(600);
+  }
+  CACHE.igHashtags = ids;
+  const seen = new Set();
+  return [...fresh, ...carried].filter((r) => !seen.has(r.url) && seen.add(r.url));
+}
+const CACHE = {};
+
 async function collectBsky(src) {
   const out = [];
   const seen = new Set();
@@ -273,7 +325,7 @@ async function main() {
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
-      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : src.mode === 'youtube' ? await collectYoutube(src) : [];
+      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : src.mode === 'youtube' ? await collectYoutube(src) : src.mode === 'instagram' ? await collectInstagram(src) : [];
       reports.push(...r);
       health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
     } catch (e) {
@@ -289,7 +341,8 @@ async function main() {
     policy: cfg.policy, sources: health, linkOnly: cfg.linkOnly,
     count: list.length, reports: list,
     stats: { d7: aggregate(list, NOW - 7 * DAY), d30: aggregate(list, NOW - 30 * DAY) },
-    observations: observations(list)
+    observations: observations(list),
+    cache: CACHE
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(out));

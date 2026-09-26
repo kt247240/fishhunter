@@ -187,6 +187,7 @@
             <datalist id="colorList"><option value="ナチュラル"><option value="オレンジ"><option value="ピンク"><option value="チャート"><option value="ゴールド"><option value="赤テープ"><option value="ケイムラ"><option value="グロー"><option value="クリア"><option value="ブラック"></datalist>
             <label>メモ<textarea name="memo" rows="2" maxlength="400" placeholder="状況・ヒットパターンなど"></textarea></label>
             <label class="file">写真<input type="file" name="photo" accept="image/*"></label>
+            <label class="share-opt" id="shareOpt"><input type="checkbox" name="share"> <span><b>みんなの釣果に匿名で共有</b><br><small>共有されるのは 釣り場名・魚種・サイズ・数・釣法・カラー・時間帯・潮 だけ。写真・メモ・正確な位置は共有されません。</small></span></label>
             <button class="btn primary block" type="submit">記録する</button>
           </form>
         </article>
@@ -229,6 +230,7 @@
           <h3>安全について</h3>
           <p class="warn-text">高波・突風・増水・雷の予報時はスコアに関わらず<b>釣行を中止</b>してください。ライフジャケット着用、立入禁止区域の遵守、漁協の遊漁規則（遊漁券・解禁期間・禁漁区）の確認は必須です。本アプリは判断材料であり、安全を保証するものではありません。</p>
           <p class="muted small">気象: Open-Meteo（CC BY 4.0） / 地図: 国土地理院タイル・OpenStreetMap / 天文計算: アプリ内算出</p>
+          <p class="small"><a href="privacy.html">プライバシーポリシー</a></p>
           <p class="muted small" id="versionText"></p>
         </article>
       </div>
@@ -246,9 +248,11 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="js/diagnostics.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/spots.js"></script>
   <script src="js/astro.js"></script>
   <script src="js/weather.js"></script>
+  <script src="js/community.js"></script>
   <script src="js/feed.js"></script>
   <script src="js/catchlog.js"></script>
   <script src="js/engine.js"></script>

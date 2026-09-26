@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>プライバシーポリシー — FishHunter</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    body{padding-bottom:40px} .doc{max-width:760px;margin:0 auto;padding:24px 16px}
+    .doc h1{font-size:26px;margin:8px 0 4px} .doc h2{font-size:17px;margin:26px 0 8px}
+    .doc p,.doc li{font-size:14.5px;line-height:1.8;color:var(--text)} .doc ul{padding-left:20px}
+    .doc table{width:100%;border-collapse:collapse;font-size:13.5px} .doc td,.doc th{border:1px solid var(--line-2);padding:8px;text-align:left;vertical-align:top}
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <a href="index.html" class="small">← FishHunter</a>
+    <h1>プライバシーポリシー</h1>
+    <p class="muted small">FishHunter（運営：ANON.）／ 最終更新：2026年9月26日</p>
+
+    <h2>1. 基本方針</h2>
+    <p>FishHunter は、アカウント登録なしで使える釣果予測アプリです。利用者の情報は原則として利用者の端末内だけで扱い、運営者のサーバーには送りません。例外は、利用者が自分で選んで行う「みんなの釣果」への匿名共有だけです。</p>
+
+    <h2>2. 端末内に保存する情報</h2>
+    <ul>
+      <li>釣果ログ（日時・釣り場・魚種・サイズ・数・釣法・メモ・写真・記録時の気象条件）</li>
+      <li>設定（よく行くエリア・狙いの魚・お気に入り・表示テーマ）、気象データのキャッシュ</li>
+    </ul>
+    <p>これらはブラウザの保存領域（localStorage）にだけ保存され、運営者を含む第三者には送信されません。アプリ内の「バックアップ書き出し」で利用者自身が取り出せます。ブラウザのサイトデータを削除すると消去されます。</p>
+
+    <h2>3. 位置情報</h2>
+    <p>「現在地から距離」を押したときだけ、端末の位置情報を使って釣り場までの直線距離を計算します。位置情報は端末内の計算にだけ使い、保存・送信はしません。</p>
+
+    <h2>4. 「みんなの釣果」への匿名共有（任意）</h2>
+    <p>釣果を記録するときに「みんなの釣果に匿名で共有」をオンにした場合に限り、次の項目を運営者のデータベース（Supabase）に送信し、ほかの利用者に公開します。</p>
+    <table>
+      <tr><th>共有される項目</th><td>釣り場名（アプリに登録された公開の釣り場のみ）、魚種、サイズ、数、釣法、ルアーのカラー、時間帯（朝マズメ・日中・夕マズメ・夜）、潮回り、釣った日時、匿名の表示名（例：ANON-66AC）</td></tr>
+      <tr><th>共有されない項目</th><td>写真、メモ、正確な位置、氏名・メールアドレスなどの個人情報</td></tr>
+      <tr><th>端末識別子</th><td>いたずら投稿を防ぐため、端末ごとのランダムな識別子を送信します（個人を特定する情報は含みません）。識別子はほかの利用者には公開しません。</td></tr>
+      <tr><th>保存期間</th><td>公開は釣った日から30日間です。</td></tr>
+    </table>
+
+    <h2>5. 外部サービスとの通信</h2>
+    <ul>
+      <li>気象・海況：Open-Meteo（予報データの取得）</li>
+      <li>地図：国土地理院タイル、OpenStreetMap、地図表示ライブラリ（cdnjs）</li>
+      <li>公開サイトの配信：GitHub Pages</li>
+      <li>匿名共有を使う場合：Supabase</li>
+    </ul>
+    <p>これらのサービスには、通信のためにIPアドレスなどの技術情報が送られます。各サービスのプライバシーポリシーに従って扱われます。本アプリは広告・行動分析のためのトラッキングを行いません。</p>
+
+    <h2>6. 公開情報の収集について</h2>
+    <p>釣果情報の表示のため、管理釣り場・釣具店・漁協などの公開フィード、YouTube・Instagram・Bluesky の公式APIで取得できる公開投稿から、釣果に関する短い抜粋と元のページへのリンクを収集します。画像・動画そのものは保存しません。掲載の停止をご希望の場合は、下記の窓口までご連絡ください。</p>
+
+    <h2>7. データの削除</h2>
+    <ul>
+      <li>端末内のデータ：アプリの釣果タブから個別に削除できます。ブラウザのサイトデータを削除するとすべて消去されます。</li>
+      <li>匿名共有した釣果：表示名（ANON-xxxx）と投稿日時を添えて下記の窓口にご連絡ください。確認のうえ非公開にします。</li>
+    </ul>
+
+    <h2>8. お問い合わせ</h2>
+    <p>運営：ANON.<br>連絡先：<span id="contact">準備中</span></p>
+
+    <h2>9. 改定</h2>
+    <p>内容を変更する場合は、このページで告知します。</p>
+  </main>
+  <script src="js/config.js"></script>
+  <script>(function(){var e=(window.FH&&FH.config&&FH.config.contactEmail)||'';if(e){var a=document.createElement('a');a.href='mailto:'+e;a.textContent=e;var c=document.getElementById('contact');c.textContent='';c.appendChild(a);}})();</script>
+</body>
+</html>

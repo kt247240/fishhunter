@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v20.3.0 CATCH RADAR';
+  const VERSION = 'v21.0.0 COMMUNITY';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -275,9 +275,9 @@
     const ins = FH.feed.insight(sp, fish);
     const tip = ins ? `<div class="insight rd-tip">💡 <b>${esc(shortName(fish.name))}の直近実績</b>（${ins.reports}件）${ins.maxSize ? ` 最大${ins.maxSize}cm` : ''}${ins.methods.length ? ' ／ ' + ins.methods.map(([k, n]) => `${esc(k)}${n}`).join('・') : ''}${ins.colors.length ? `<br><span class="small">「${esc(ins.colors[0])}」</span>` : ''}</div>` : '';
     const rec = FH.feed.recent(sp, 4).map((r) => `<li class="rd-rep">
-        <div class="rd-rep-h"><span class="chip">${esc({ official: '公式', shop: '釣具店', sns: 'SNS', video: 'YouTube', blog: 'ブログ', coop: '漁協' }[r.type] || '情報')}</span><b>${esc(r.srcName)}</b><span class="muted small">${md(r.date)} ${hm(r.date)}</span></div>
+        <div class="rd-rep-h"><span class="chip">${esc({ ugc: 'みんな', official: '公式', shop: '釣具店', sns: 'SNS', video: 'YouTube', blog: 'ブログ', coop: '漁協' }[r.type] || '情報')}</span><b>${esc(r.srcName)}</b><span class="muted small">${md(r.date)} ${hm(r.date)}</span></div>
         <div class="chips">${r.catches.filter((c) => !c.mention).slice(0, 5).map(catchChip).join('')}</div>
-        <a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事を見る →</a></li>`).join('');
+        ${r.url ? `<a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">元の投稿・記事を見る →</a>` : `<span class="small muted">${esc(r.author || '')} さんの投稿</span>`}</li>`).join('');
     const pm = FH.feed.pierMap(sp, fish);
     const vis = FH.feed.visitors(sp);
     let pierHtml = '';
@@ -497,6 +497,7 @@
   /* ── LOG ── */
   function renderLog() {
     const form = $('#logForm');
+    $('#shareOpt').hidden = !FH.community.enabled();
     if (!form.dataset.ready) {
       fillSpotSelect(form.spot, state.spotId);
       form.when.value = localInput(Date.now());
@@ -595,7 +596,7 @@
       el.innerHTML = '<div class="empty" style="grid-column:1/-1">公開釣果の取得待ちです（公開版では2〜3時間ごとに自動更新）。<br>診断タブで状態を確認できます。</div>';
       return;
     }
-    const TYPE = { official: '公式', shop: '釣具店', sns: 'SNS', video: 'YouTube', blog: 'ブログ', coop: '漁協', boat: '船（沖の情報）' };
+    const TYPE = { ugc: 'みんなの釣果', official: '公式', shop: '釣具店', sns: 'SNS', video: 'YouTube', blog: 'ブログ', coop: '漁協', boat: '船（沖の情報）' };
     el.innerHTML = items.map((r) => `<article class="post">
       <div class="body"><h4>${esc(r.spots.map((id) => (FH.spotById[id] || {}).name).filter(Boolean).join('・') || r.area || '')} ${esc(r.title)}</h4>
       <div class="meta">${esc(r.srcName)}${r.author ? ' ' + esc(r.author) : ''} ・ ${md(r.date)} ${hm(r.date)}</div>
@@ -625,16 +626,24 @@
     let photo = null;
     const file = form.photo.files && form.photo.files[0];
     if (file) { try { photo = await compressImage(file, 720, 0.72); } catch (_) { FH.ui.toast('写真を読み込めませんでした'); } }
+    let saved;
     try {
-      FH.catchlog.add({
+      saved = FH.catchlog.add({
         t, spotId: sp.id, speciesId: fish.id,
         size: parseFloat(form.size.value) || null, count: parseInt(form.count.value, 10) || 1,
         method: form.method.value, lure: form.lure.value.trim(), lureColor: form.lureColor.value.trim(),
         memo: form.memo.value.trim(), photo, cond
       });
     } catch (e) { FH.ui.toast(e.message, 4000); return; }
+    const share = form.share && form.share.checked && FH.community.enabled();
     form.size.value = ''; form.memo.value = ''; form.photo.value = ''; form.count.value = 1;
-    FH.ui.toast(`🎣 ${fish.name}を記録しました`);
+    FH.ui.toast(`🎣 ${fish.name}を記録しました${share ? '（共有中…）' : ''}`);
+    if (share) {
+      FH.community.post(saved).then(async () => {
+        FH.ui.toast('🌐 みんなの釣果に匿名で共有しました');
+        await FH.feed.refreshCommunity(); markAllDirty(); render();
+      }).catch((e) => FH.ui.toast('共有できませんでした：' + e.message, 4000));
+    }
     state.feedTab = 'mine';
     markAllDirty();
     render();

@@ -20,12 +20,48 @@
         return Object.assign(j, { detail: `${j.reports.length}件 ・ ソース ${ok}/${(j.sources || []).length}` });
       });
       intel = d;
-      evCache.clear();
+      await mergeCommunity();
       return intel;
     } catch (e) {
       FH.diag.report('feed', { label: '釣果インテル', state: 'warn', detail: '未取得（任意機能）: ' + (e && e.message) });
+      if (FH.community && FH.community.enabled()) { intel = { reports: [], sources: [], stats: null }; await mergeCommunity(); return intel; }
       return null;
     }
+  }
+
+  /** Merge live community posts and (re)compute the per-spot / per-area tallies on the device. */
+  async function mergeCommunity() {
+    if (!intel) return;
+    let ugc = [];
+    if (FH.community && FH.community.enabled()) ugc = FH.community.asReports(await FH.community.recent());
+    intel.reports = [...intel.reports.filter((r) => r.type !== 'ugc'), ...ugc].sort((a, b) => (b.date || 0) - (a.date || 0));
+    intel.stats = { d7: aggregate(intel.reports, Date.now() - 7 * DAY), d30: aggregate(intel.reports, Date.now() - 30 * DAY) };
+    evCache.clear();
+  }
+
+  function aggregate(reports, since) {
+    const bucket = () => ({ reports: 0, fish: 0, maxSize: null, last: 0, methods: {}, times: {} });
+    const add = (map, r, c) => {
+      const k = c.sp || c.name;
+      const b = map[k] || (map[k] = Object.assign(bucket(), { sp: c.sp, name: c.name }));
+      b.reports++; b.fish += c.mention ? 0 : c.count || 1;
+      if (c.max != null) b.maxSize = Math.max(b.maxSize || 0, c.max);
+      b.last = Math.max(b.last, r.date || 0);
+      if (c.method) b.methods[c.method] = (b.methods[c.method] || 0) + 1;
+      (r.time.buckets || []).forEach((t) => { b.times[t] = (b.times[t] || 0) + 1; });
+    };
+    const spots = {}, areas = {}, all = {};
+    for (const r of reports) {
+      if (!r.date || r.date < since || r.type === 'boat') continue;
+      for (const c of r.catches) {
+        r.spots.forEach((sid) => add(spots[sid] || (spots[sid] = {}), r, c));
+        if (r.area) add(areas[r.area] || (areas[r.area] = {}), r, c);
+        add(all, r, c);
+      }
+    }
+    const list = (m) => Object.values(m).sort((a, b) => b.fish - a.fish || b.last - a.last).slice(0, 12);
+    const map = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, list(v)]));
+    return { spots: map(spots), areas: map(areas), all: list(all) };
   }
 
   const reportsFor = (pred, days) => {
@@ -146,7 +182,7 @@
   }
 
   FH.feed = {
-    load, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
+    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],

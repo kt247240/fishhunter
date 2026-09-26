@@ -38,6 +38,8 @@ jobs:
         continue-on-error: true
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
           PREV_INTEL_URL: https://kt247240.github.io/fishhunter/data/intel.json
           YOUTUBE_FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: node tools/intel/collect.mjs data/intel.json
