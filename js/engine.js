@@ -414,7 +414,7 @@
 
   /* ───────────────────────── tactics ───────────────────────── */
 
-  const BOTTOM = new Set(['kisu', 'hirame', 'kasago', 'kurodai', 'madai']);
+  const BOTTOM = new Set(['kisu', 'hirame', 'kasago', 'kurodai', 'madai', 'kawahagi']);
 
   function tactics(spot, sp, c) {
     const month = c.month;
@@ -453,7 +453,10 @@
       niji: () => ((c.flow || 0) > 12 ? 'スプーン14g・ヘビーミノー9cm' : 'ミノー7cm・スプーン7〜10g'),
       ayu: () => '水量に合わせてオモリ・背バリで調整',
       bass: () => (c.waterTemp != null && c.waterTemp < 12 ? 'メタルバイブ・ネコリグ（ディープ）' : windy ? 'シャッド・スピナーベイト' : 'ネコリグ・ミドスト（中層）'),
-      wakasagi: () => '仕掛け0.5〜1号／オモリは棚と風で3〜7g'
+      wakasagi: () => '仕掛け0.5〜1号／オモリは棚と風で3〜7g',
+      mejina: () => ((c.wave || 0) > 1 || windy ? 'ウキ負荷を上げる（B〜3B）・ハリス1.75〜2号' : 'ウキ0〜G2・ハリス1.5号'),
+      kawahagi: () => 'ハリス2〜3号・小針（ハゲ針4〜5号）',
+      shiira: () => (windy ? 'ダイビングペンシル140〜160mm' : 'ポッパー・ミノー120〜140mm')
     };
     out.size = (sizes[sp.id] || (() => '状況に合わせて'))();
 

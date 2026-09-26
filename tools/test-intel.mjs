@@ -31,8 +31,10 @@ test('アジング is a method, not a fish; シーバス is not バス', () => {
   assert.equal(cs.filter((c) => c.sp === 'bass').length, 0);
 });
 test('non-target species are kept by name', () => {
-  const cs = extractCatches('２８５ｍ外側 シイラ １００ｃｍ ダイニングペンシル');
-  assert.equal(cs[0].sp, null); assert.equal(cs[0].name, 'シイラ'); assert.equal(cs[0].max, 100); assert.equal(cs[0].method, 'トップ');
+  const cs = extractCatches('５４０ｍ内側 チダイ５匹～２４ｃｍ 遠投カゴ釣り');
+  assert.equal(cs[0].sp, null); assert.equal(cs[0].name, 'チダイ'); assert.equal(cs[0].max, 24); assert.equal(cs[0].count, 5);
+  const sh = extractCatches('２８５ｍ外側 シイラ １００ｃｍ ダイニングペンシル')[0];
+  assert.equal(sh.sp, 'shiira'); assert.equal(sh.max, 100); assert.equal(sh.method, 'トップ');
 });
 test('time: title wins, 午後4時 → 16', () => {
   const t = extractTime('午後の釣果', '午後４時頃から先端内側でアジが入れ食い');

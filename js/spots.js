@@ -246,6 +246,44 @@
       ],
       tips: ['朝一の群れが濃い', '棚がずれたら早めに探り直し'],
       rules: '湖ごとに解禁期間・遊漁券あり。氷上は管理者の開放情報のみを信用。'
+    },
+    {
+      id: 'mejina', name: 'メジナ', group: '磯・堤防', habitat: ['sea'], color: '#7fb4d9',
+      aliases: ['メジナ', 'グレ', '口太'],
+      months: [.6, .5, .5, .6, .7, .6, .5, .5, .6, .8, .9, .8],
+      temp: [10, 14, 21, 26], time: { mazume: .9, day: .9, night: .25 },
+      wave: [.3, 1.1, 1.8], windTol: 8, water: 'stain', moon: 0,
+      methods: [
+        { name: 'フカセ', gear: '磯竿1〜1.5号 / 道糸2〜3号 / ハリス1.5〜2号 / 円錐ウキ / オキアミ＋配合餌', how: '撒き餌と付け餌を同調させ、潮下へ流す。食いが渋ければハリスを落とし、ウキ下を細かく調整。' },
+        { name: 'ウキ釣り（堤防）', gear: '磯竿 / 棒ウキ・円錐ウキ / オキアミ', how: '足元〜際の撒き餌で浮かせて釣る。' }
+      ],
+      tips: ['サラシや適度な波っ気で警戒心が下がる', '秋〜冬は型が良く、群れで入る'],
+      rules: '磯は波・滑落に注意。撒き餌の禁止区域は現地ルールに従う。'
+    },
+    {
+      id: 'kawahagi', name: 'カワハギ', group: '底物', habitat: ['sea'], color: '#c7b27a',
+      aliases: ['カワハギ', 'ウマズラハギ', 'ウマヅラ', 'ハゲ'],
+      months: [0, 0, 0, .1, .3, .5, .7, .8, 1, .9, .6, .2],
+      temp: [14, 18, 24, 27], time: { mazume: .7, day: 1, night: .05 },
+      wave: [0, .7, 1.3], windTol: 7, water: 'clear', moon: 0,
+      methods: [
+        { name: '胴付き（アサリ餌）', gear: 'カワハギ竿・ライトロッド / 胴付き仕掛け / ハリス2〜3号 / アサリ・イソメ', how: '堤防際・テトラ際・海藻周りを探り、止め・たるませで食わせる。餌取り名人なので小さめの針で。' },
+        { name: 'ちょい投げ', gear: 'ちょい投げ竿 / 天秤 / アサリ・イソメ', how: '根周りの砂地をゆっくりサビく。' }
+      ],
+      tips: ['水温の高い晩夏〜秋が数釣りのピーク', 'アタリは小さい。聞き合わせで掛ける'],
+      rules: ''
+    },
+    {
+      id: 'shiira', name: 'シイラ', group: '青物', habitat: ['sea'], color: '#ffd43b',
+      aliases: ['シイラ', 'ペンペン', 'マヒマヒ'],
+      months: [0, 0, 0, 0, 0, .2, .6, .9, 1, .5, .1, 0],
+      temp: [20, 23, 28, 31], time: { mazume: 1, day: .75, night: .05 },
+      wave: [.2, 1.2, 1.8], windTol: 8, water: 'clear', moon: 0,
+      methods: [
+        { name: 'トップ・ミノー', gear: '10ft前後 MH〜H / PE2〜3号 / リーダー40〜50lb / ダイビングペンシル・ポッパー・ミノー', how: '潮目や漂流物周りを表層で速く引く。ヒット後は強引にやり取り。' }
+      ],
+      tips: ['黒潮系の暖水が入った晩夏に岸から狙えるチャンス', '外向きの潮通しの良い堤防先端で回遊待ち'],
+      rules: '大型は取り込み用のギャフ・タモ網を準備。周囲との間隔に注意。'
     }
   ];
 
@@ -253,22 +291,22 @@
   const SPOTS = [
     // ── 新潟・上越 / 糸魚川 ─────────────────────────────
     { id: 'oyashirazu', feedAliases: ['親不知', '親知らず'], name: '親不知', pref: '新潟', area: '上越', type: '磯・ゴロタ', water: 'sea', lat: 36.985, lon: 137.705, face: 330, depth: 'deep',
-      species: ['inada', 'sagoshi', 'aori', 'kasago', 'madai', 'hirame'],
+      species: ['inada', 'sagoshi', 'aori', 'kasago', 'madai', 'hirame', 'mejina', 'shiira'],
       feature: '急深な海岸。潮通しが良く、青物回遊の期待が高い。足場が険しい箇所が多い。', caution: '落石・高波。うねりが残る日は近づかない。' },
     { id: 'himeko', feedAliases: ['姫川港', '姫川河口', '姫川'], name: '姫川港', pref: '新潟', area: '上越', type: '港湾・河口', water: 'sea', lat: 37.049, lon: 137.838, face: 330, depth: 'mid',
       species: ['seabass', 'inada', 'sagoshi', 'aji', 'saba', 'aori', 'kasago'],
       feature: '姫川河口に隣接。河川水の流入でベイトが溜まりやすい。', caution: '港湾施設の立入禁止区域に注意。' },
     { id: 'nou-port', feedAliases: ['能生漁港', '能生港', '能生', 'マリンドリーム能生'], name: '能生漁港', pref: '新潟', area: '上越', type: '漁港', water: 'sea', lat: 37.097, lon: 137.983, face: 330, depth: 'mid',
-      species: ['aori', 'aji', 'saba', 'kasago', 'kurodai', 'inada'],
+      species: ['aori', 'aji', 'saba', 'kasago', 'kurodai', 'inada', 'mejina', 'kawahagi'],
       feature: '藻場のある磯が近く、秋のアオリイカで人気。', caution: '漁業者の作業優先。駐車マナー厳守。' },
     { id: 'tsutsuishi', feedAliases: ['筒石漁港', '筒石'], name: '筒石漁港', pref: '新潟', area: '上越', type: '漁港', water: 'sea', lat: 37.119, lon: 138.036, face: 330, depth: 'mid',
-      species: ['aori', 'aji', 'kasago', 'kurodai', 'saba'],
+      species: ['aori', 'aji', 'kasago', 'kurodai', 'saba', 'mejina'],
       feature: '舟屋の町並みが残る小規模漁港。周辺の磯場と合わせて探れる。', caution: '生活圏。騒音・ゴミに特に配慮。' },
     { id: 'nadachi', feedAliases: ['名立漁港', '名立'], name: '名立漁港', pref: '新潟', area: '上越', type: '漁港', water: 'sea', lat: 37.170, lon: 138.099, face: 330, depth: 'mid',
       species: ['aori', 'aji', 'saba', 'kasago', 'kurodai', 'kisu'],
       feature: '道の駅に近くアクセス良好。港内外で多魚種。', caution: '' },
     { id: 'naoetsu', feedAliases: ['直江津港', '直江津', '第3東防波堤', '第三東防波堤', 'ハッピーフィッシング直江津'], name: '直江津港', pref: '新潟', area: '上越', type: '港湾（管理釣り場あり）', water: 'sea', lat: 37.186, lon: 138.243, face: 340, depth: 'deep',
-      species: ['inada', 'sagoshi', 'aji', 'saba', 'seabass', 'kurodai', 'aori', 'madai'],
+      species: ['inada', 'sagoshi', 'aji', 'saba', 'seabass', 'kurodai', 'aori', 'madai', 'mejina', 'kawahagi', 'shiira'],
       feature: '大型港湾。第3東防波堤はNPO法人による管理釣り場として運営（利用条件は公式で確認）。', caution: '管理釣り場は開場日・料金・ルールを公式サイトで確認。' },
     { id: 'kuroi', feedAliases: ['黒井突堤', '黒井'], name: '黒井突堤', pref: '新潟', area: '上越', type: '突堤・サーフ', water: 'sea', lat: 37.203, lon: 138.276, face: 340, depth: 'shallow',
       species: ['kisu', 'hirame', 'seabass', 'inada', 'sagoshi', 'saba'],
@@ -278,16 +316,16 @@
       feature: '遠浅のサーフが続く。キス・ヒラメの好フィールド。', caution: '離岸流に注意。' },
     // ── 新潟・中越 ──────────────────────────────────
     { id: 'kashiwazaki', feedAliases: ['柏崎港', '柏崎'], name: '柏崎港', pref: '新潟', area: '中越', type: '港湾（管理釣り場あり）', water: 'sea', lat: 37.360, lon: 138.535, face: 320, depth: 'mid',
-      species: ['aji', 'saba', 'inada', 'sagoshi', 'kurodai', 'aori', 'kasago'],
+      species: ['aji', 'saba', 'inada', 'sagoshi', 'kurodai', 'aori', 'kasago', 'mejina', 'kawahagi'],
       feature: '中越の主要港。防波堤からの回遊魚が中心。', caution: '管理エリアのルールを確認。' },
     { id: 'kujiranami', feedAliases: ['鯨波', '番神'], name: '鯨波・番神', pref: '新潟', area: '中越', type: '磯・サーフ', water: 'sea', lat: 37.345, lon: 138.515, face: 300, depth: 'mid',
-      species: ['kurodai', 'aori', 'kasago', 'kisu', 'hirame', 'madai'],
+      species: ['kurodai', 'aori', 'kasago', 'kisu', 'hirame', 'madai', 'mejina'],
       feature: '磯とサーフが混在。夏場は海水浴客に配慮。', caution: '遊泳区域での釣りは不可。' },
     { id: 'izumozaki', feedAliases: ['出雲崎'], name: '出雲崎', pref: '新潟', area: '中越', type: '漁港・磯', water: 'sea', lat: 37.535, lon: 138.707, face: 300, depth: 'mid',
-      species: ['aori', 'kurodai', 'kasago', 'aji', 'madai'],
+      species: ['aori', 'kurodai', 'kasago', 'aji', 'madai', 'mejina'],
       feature: '夕日の名所。周辺の磯・小港を回遊しながら探れる。', caution: '' },
     { id: 'teradomari', feedAliases: ['寺泊港', '寺泊'], name: '寺泊港', pref: '新潟', area: '中越', type: '漁港', water: 'sea', lat: 37.642, lon: 138.764, face: 290, depth: 'mid',
-      species: ['aji', 'saba', 'kurodai', 'aori', 'kasago', 'inada'],
+      species: ['aji', 'saba', 'kurodai', 'aori', 'kasago', 'inada', 'mejina', 'kawahagi'],
       feature: '魚市場通りで有名な港町。港内外で手軽に狙える。', caution: '観光客・車両の往来に注意。' },
     { id: 'ohkouzu', feedAliases: ['大河津分水', '大河津', '野積'], name: '大河津分水 河口', pref: '新潟', area: '中越', type: '河口', water: 'sea', lat: 37.666, lon: 138.790, face: 300, depth: 'shallow',
       species: ['seabass', 'hirame', 'kurodai', 'sakuramasu'],
@@ -297,7 +335,7 @@
       species: ['seabass', 'kurodai', 'aji', 'saba', 'inada', 'sagoshi'],
       feature: '信濃川河口の大型港。都市型シーバスの定番エリア。', caution: '港湾保安区域は立入禁止。' },
     { id: 'niigata-east', feedAliases: ['新潟東港', '東港', 'ハッピーフィッシング東港', 'ハッピーフィシング東港'], name: '新潟東港', pref: '新潟', area: '下越', type: '港湾（管理釣り場あり）', water: 'sea', lat: 37.995, lon: 139.228, face: 330, depth: 'deep',
-      species: ['inada', 'sagoshi', 'aji', 'saba', 'kurodai', 'seabass', 'madai', 'aori'],
+      species: ['inada', 'sagoshi', 'aji', 'saba', 'kurodai', 'seabass', 'madai', 'aori', 'mejina', 'kawahagi', 'shiira'],
       feature: '防波堤の一部はNPO法人による管理釣り場として運営。青物の実績多数。', caution: '管理釣り場の開場条件は公式で確認。' },
     { id: 'aganogawa', feedAliases: ['阿賀野川'], name: '阿賀野川 河口', pref: '新潟', area: '下越', type: '河口', water: 'sea', lat: 37.962, lon: 139.117, face: 330, depth: 'shallow',
       species: ['seabass', 'hirame', 'kurodai', 'sakuramasu'],
@@ -306,17 +344,17 @@
       species: ['aji', 'saba', 'aori', 'kurodai', 'inada', 'kasago'],
       feature: '村上エリアの拠点港。佐渡汽船・漁港の複合。', caution: '' },
     { id: 'sasagawa', feedAliases: ['笹川流れ', '寝屋漁港', '桑川'], name: '笹川流れ', pref: '新潟', area: '下越', type: '磯', water: 'sea', lat: 38.380, lon: 139.475, face: 280, depth: 'deep',
-      species: ['aori', 'kurodai', 'madai', 'kasago', 'inada', 'hirame'],
+      species: ['aori', 'kurodai', 'madai', 'kasago', 'inada', 'hirame', 'mejina', 'shiira'],
       feature: '奇岩が連なる景勝地。透明度が高く磯の釣りが魅力。', caution: '磯場は波・滑落に注意。ライフジャケット必携。' },
     // ── 佐渡 ────────────────────────────────────────
     { id: 'ryotsu', feedAliases: ['両津港', '両津', '加茂湖'], name: '両津港', pref: '新潟', area: '佐渡', type: '港湾', water: 'sea', lat: 38.083, lon: 138.438, face: 90, depth: 'mid',
-      species: ['aji', 'saba', 'aori', 'inada', 'kurodai', 'kasago'],
+      species: ['aji', 'saba', 'aori', 'inada', 'kurodai', 'kasago', 'mejina', 'kawahagi'],
       feature: '佐渡の玄関口。加茂湖に隣接し多彩な魚種。', caution: 'フェリー発着エリアは立入不可。' },
     { id: 'washizaki', feedAliases: ['鷲崎'], name: '鷲崎', pref: '新潟', area: '佐渡', type: '磯・漁港', water: 'sea', lat: 38.320, lon: 138.510, face: 0, depth: 'deep',
-      species: ['inada', 'madai', 'aori', 'kasago', 'kurodai'],
+      species: ['inada', 'madai', 'aori', 'kasago', 'kurodai', 'mejina', 'shiira'],
       feature: '佐渡北端。潮通し抜群の外洋エリア。', caution: '北西風時は大荒れ。' },
     { id: 'ogi', feedAliases: ['小木港', '小木'], name: '小木港', pref: '新潟', area: '佐渡', type: '港湾・磯', water: 'sea', lat: 37.815, lon: 138.284, face: 200, depth: 'mid',
-      species: ['aori', 'aji', 'kurodai', 'madai', 'kasago', 'inada'],
+      species: ['aori', 'aji', 'kurodai', 'madai', 'kasago', 'inada', 'mejina', 'kawahagi'],
       feature: '佐渡南端。冬の北西風の影響を受けにくい南向き。', caution: '' },
     // ── 新潟・内水面 ─────────────────────────────────
     { id: 'uonogawa', feedAliases: ['魚野川'], name: '魚野川', pref: '新潟', area: '中越', type: '河川', water: 'river', lat: 37.110, lon: 138.935, elev: 200,
