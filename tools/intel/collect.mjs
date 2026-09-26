@@ -91,7 +91,8 @@ function toReport(src, it, extra = {}) {
   const full = `${it.title}\n${it.text}`;
   const catches = extra.catches || extractCatches(full);
   // Single-species sources (ドーム船, bass rentals, eging logs) state counts without the fish name.
-  if (src.defaultSpecies && !extra.catches) {
+  // defaultIf: only posts whose title matches (a boat that runs eging trips among others).
+  if (src.defaultSpecies && !extra.catches && (!src.defaultIf || new RegExp(src.defaultIf).test(it.title))) {
     const tl = extractTally(full);
     const sp = ctx.FH.speciesById[src.defaultSpecies];
     if (sp && tl.count != null && !catches.some((c) => c.sp === sp.id && !c.mention)) {

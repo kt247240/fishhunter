@@ -442,6 +442,132 @@
       "url": "https://rssblog.ameba.jp/tenryu-gyokyo/rss20.xml"
     },
     {
+      "id": "naraigawa-gyokyo",
+      "name": "奈良井川漁協（松本）",
+      "type": "coop",
+      "area": "中信",
+      "spots": [
+        "narai"
+      ],
+      "mode": "rss",
+      "url": "https://www.naraigawa.jp/?feed=rss2"
+    },
+    {
+      "id": "seikotei-kizaki",
+      "name": "星湖亭（木崎湖）",
+      "type": "shop",
+      "area": "中信",
+      "spots": [
+        "kizaki"
+      ],
+      "mode": "rss",
+      "url": "https://seikotei.com/feed/"
+    },
+    {
+      "id": "yuyuflyfisher",
+      "name": "ゆうゆうフライフィッシャー（犀川ほか）",
+      "type": "blog",
+      "area": "中信",
+      "spots": [],
+      "mode": "rss",
+      "url": "http://yuyuflyfisher.blog.fc2.com/?xml"
+    },
+    {
+      "id": "kayumikyo",
+      "name": "鮎釣り日記（千曲川）",
+      "type": "blog",
+      "area": "東信",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/kayumikyo/rss20.xml"
+    },
+    {
+      "id": "dayaji",
+      "name": "新潟東港周辺デイアジング専科",
+      "type": "blog",
+      "area": "下越",
+      "spots": [],
+      "mode": "rss",
+      "url": "http://blog.livedoor.jp/dayaji/index.rdf"
+    },
+    {
+      "id": "dotabare",
+      "name": "新潟発 キジハタ・メバル・アオリイカ・アジ釣り",
+      "type": "blog",
+      "area": "下越",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://dotabare.exblog.jp/index.xml"
+    },
+    {
+      "id": "taikoumaru",
+      "name": "鯛紅丸（新潟東港・遊漁船）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "niigata-east"
+      ],
+      "mode": "rss",
+      "url": "http://niigatataikoumaru.blog40.fc2.com/?xml"
+    },
+    {
+      "id": "hoshinmaru5",
+      "name": "第五宝進丸（岩船・遊漁船）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "iwafune"
+      ],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/kcs380225/rss20.xml"
+    },
+    {
+      "id": "hoshomaru",
+      "name": "宝昌丸（寝屋漁港・遊漁船）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "sasagawa"
+      ],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/chibisuke0227/rss20.xml",
+      "defaultSpecies": "aori",
+      "defaultIf": "ティップラン|エギング"
+    },
+    {
+      "id": "harakichi",
+      "name": "第八はら吉丸（村上・遊漁船）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "sasagawa"
+      ],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/harakichi-maru/rss20.xml",
+      "defaultSpecies": "aori",
+      "defaultIf": "ティップラン|エギング"
+    },
+    {
+      "id": "shoeimaru",
+      "name": "第八庄栄丸（寝屋漁港・遊漁船）",
+      "type": "boat",
+      "area": "下越",
+      "spots": [
+        "sasagawa"
+      ],
+      "mode": "rss",
+      "url": "http://blog.livedoor.jp/dai8shoeimaru/index.rdf"
+    },
+    {
+      "id": "hobie-kayak",
+      "name": "新潟下越 カヤック釣り日記",
+      "type": "boat",
+      "area": "下越",
+      "spots": [],
+      "mode": "rss",
+      "url": "https://rssblog.ameba.jp/hobie-niigataturi/rss20.xml"
+    },
+    {
       "id": "youtube",
       "name": "YouTube（公開動画）",
       "type": "video",

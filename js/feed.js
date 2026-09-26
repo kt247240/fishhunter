@@ -240,6 +240,19 @@
     return { scope: 'none', label: spot.name, list: [] };
   }
 
+  /**
+   * "沖の気配": boat trips in this spot's area that caught the species (last `days`). Boats reach the
+   * schools first, so this is a lead indicator for the shore — kept apart from the shore statistics.
+   */
+  function offshore(spot, sp, days = 7) {
+    if (!intel || spot.water !== 'sea') return null;
+    const rs = reportsFor((r) => r.type === 'boat' && (r.area === spot.area || r.spots.includes(spot.id)) && r.catches.some((c) => c.sp === sp.id && !c.mention), days);
+    if (!rs.length) return null;
+    const best = rs.map((r) => ({ r, n: Math.max(...r.catches.filter((c) => c.sp === sp.id && !c.mention).map((c) => c.count || 0)) })).sort((a, b) => b.n - a.n)[0];
+    const dayKey = (t) => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
+    return { trips: rs.length, days: new Set(rs.map((r) => dayKey(r.date))).size, boats: new Set(rs.map((r) => r.src)).size, best: best.n || null, bestSrc: best.r.srcName, bestDate: best.r.date, bestUrl: best.r.url, last: Math.max(...rs.map((r) => r.date)) };
+  }
+
   function recent(spot, n = 6) {
     const shore = (r) => r.type !== 'boat' && r.catches.some((c) => !c.mention);
     const own = reportsFor((r) => r.spots.includes(spot.id) && shore(r), 14);
@@ -353,7 +366,7 @@
     kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
-    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
+    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, offshore, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],

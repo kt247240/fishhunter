@@ -710,3 +710,4 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
   .pk-fish, .medal.m1::after, .tl-now-dot, .gauge .gauge-w1, .gauge .gauge-w2 { animation: none; }
   .tl-line { animation: none; stroke-dashoffset: 0; } .tl-area { animation: none; opacity: 1; }
 }
+.rd-off { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; background: linear-gradient(135deg, rgba(93, 228, 255, .10), rgba(93, 228, 255, .02)); border: 1px solid rgba(93, 228, 255, .25); }

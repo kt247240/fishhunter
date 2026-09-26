@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v33.0.0 LOOK';
+  const VERSION = 'v33.1.0 OFFSHORE';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -290,10 +290,12 @@
     const rd = FH.feed.radar(sp, 7);
     $('#radarStamp').textContent = FH.feed.generatedAt() ? '収集 ' + ago(Date.parse(FH.feed.generatedAt())) : '';
     $('#radarScope').textContent = rd && rd.scope !== 'none' ? `${rd.label} ・ 直近7日` : '';
+    const off = FH.feed.offshore(sp, fish);
+    const offHtml = off ? `<div class="rd-off">🚤 <b>沖の気配</b>（${esc(sp.area)}の船・直近7日）：${esc(shortName(fish.name))} ${off.days}日・${off.boats}隻で釣果${off.best ? `、最多 ${off.best}${fish.id === 'aori' ? '杯' : '匹'}（${esc(off.bestSrc.replace(/（.*$/, ''))} ${md(off.bestDate)}）` : ''}<br><span class="small muted">船は群れに先に当たります。岸寄りの前ぶれの目安（岸の統計には含めていません）</span></div>` : '';
     if (!rd || !rd.list.length) {
       const nts0 = FH.feed.notices(sp);
       $('#radar').innerHTML = (nts0.length ? `<div class="rd-notices"><h4 class="rd-h">📢 お知らせ（漁協・管理者）</h4>${nts0.map((n) => `<a class="rd-notice" href="${esc(n.url)}" target="_blank" rel="noopener nofollow"><b>${md(n.date)}</b> ${esc(n.text)} <span class="muted small">— ${esc(n.src)}</span></a>`).join('')}</div>` : '') +
-        `<p class="muted small">この釣り場・エリアの直近の公開釣果はまだありません。SNSの最新投稿も確認してみてください。</p>`;
+        offHtml + `<p class="muted small">この釣り場・エリアの直近の公開釣果（岸）はまだありません。SNSの最新投稿も確認してみてください。</p>`;
       return;
     }
     const max = Math.max(...rd.list.map((x) => x.fish || x.reports));
@@ -305,7 +307,7 @@
       return `<li class="rd-row${on ? ' on' : ''}${pickable ? ' rd-pick' : ''}" ${pickable ? `data-rsp="${x.sp}"` : ''} style="--i:${i}${x.sp ? ';--c:' + FH.speciesById[x.sp].color : ''}">
         <span class="rd-name">${esc(shortName(x.name))}</span>
         <span class="rd-bar"><i style="width:${Math.max(6, ((x.fish || x.reports) / max) * 100)}%"></i></span>
-        <span class="rd-val num">${x.fish ? x.fish + '匹' : x.reports + '件'}${x.trend ? `<i class="trend ${x.trend}" title="先週 ${x.prev}">${{ up: '↑', down: '↓', flat: '→', new: 'NEW' }[x.trend]}</i>` : ''}</span>
+        <span class="rd-val num">${x.fish ? x.fish + (x.sp === 'aori' ? '杯' : '匹') : x.reports + '件'}${x.trend ? `<i class="trend ${x.trend}" title="先週 ${x.prev}">${{ up: '↑', down: '↓', flat: '→', new: 'NEW' }[x.trend]}</i>` : ''}</span>
         <span class="rd-sub">${x.maxSize ? '最大' + x.maxSize + 'cm' : ''}${m ? ' ・ ' + esc(m[0]) : ''}${t ? ' ・ ' + esc(t[0]) + 'に多い' : ''}</span></li>`;
     }).join('');
     const ins = FH.feed.insight(sp, fish);
@@ -337,7 +339,7 @@
     const rowArr = rows.split('</li>').filter((x) => x.trim()).map((x) => x + '</li>');
     const listHtml = `<ol class="rd-list" data-stagger>${rowArr.slice(0, 5).join('')}</ol>` +
       (rowArr.length > 5 ? `<details class="more"><summary><span>ほかの魚 ${rowArr.length - 5}種</span></summary><ol class="rd-list">${rowArr.slice(5).join('')}</ol></details>` : '');
-    $('#radar').innerHTML = `${ntsHtml}${listHtml}${tip}${pierHtml}${rec ? `<details class="more"><summary><span>最新の釣果 ${FH.feed.recent(sp, 4).length}件</span></summary><ul class="rd-reps">${rec}</ul></details>` : ''}
+    $('#radar').innerHTML = `${ntsHtml}${listHtml}${tip}${offHtml}${pierHtml}${rec ? `<details class="more"><summary><span>最新の釣果 ${FH.feed.recent(sp, 4).length}件</span></summary><ul class="rd-reps">${rec}</ul></details>` : ''}
       <p class="muted small">公開情報を自動で集計した目安です。釣り場全体の傾向であり、特定の場所での釣果を保証するものではありません。</p>`;
     FH.motion.stagger($('#radar'));
   }

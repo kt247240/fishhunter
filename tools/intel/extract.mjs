@@ -105,7 +105,7 @@ export function extractCatches(text) {
     if (!hits.length) {
       // "アジ入れ食い！サビキで30匹": a count/size sentence right after a bare mention belongs to that fish.
       if (last && last.mention) {
-        const cnt = seg.match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
+        const cnt = seg.match(/(\d{1,3})\s*(匹|本|杯|尾|枚|ハイ(?![ァ-ヶー]))/);
         const size = seg.match(/(\d{1,3}(?:\.\d)?)\s*cm/i);
         if (cnt || size) {
           if (cnt) last.count = parseInt(cnt[1], 10);
@@ -113,6 +113,7 @@ export function extractCatches(text) {
           const m = METHODS.find(([, re]) => re.test(seg));
           if (m && !last.method) last.method = m[0];
           last.mention = false;
+          if (last.ghost) { delete last.ghost; out.push(last); }
         }
       }
       last = null;
@@ -126,9 +127,14 @@ export function extractCatches(text) {
       const foreign = tail.match(FOREIGN_SIZE);
       if (foreign) tail = tail.slice(0, foreign.index);
       const size = tail.match(/(?:(\d{1,3}(?:\.\d)?)\s*~\s*)?(\d{1,3}(?:\.\d)?)\s*cm/i);
-      const cnt = tail.match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
-      if (!size && !cnt && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) return; // a mere mention ("〜が待っています", "〜狙い", "〜かも")
+      const cnt = tail.match(/(\d{1,3})\s*(匹|本|杯|尾|枚|ハイ(?![ァ-ヶー]))/);
       const info = byAlias[h.alias];
+      if (!size && !cnt && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) {
+        // A mere mention ("〜が待っています", "〜狙い", "〜も始まり"): not a catch, but a count in the very next
+        // sentence belongs to it, not to a fish named earlier ("マダイヒット！アジも始まり！20匹オーバー").
+        last = { ghost: true, sp: info.id, name: info.id ? SPECIES.find((s) => s[0] === info.id)[1] : info.other, alias: h.alias, count: null, min: null, max: null, method: (segMethod || [null])[0], mention: true };
+        return;
+      }
       let min = null, max = null;
       if (size) {
         const hi = parseFloat(size[2]);
@@ -228,7 +234,10 @@ export function extractTally(text) {
   const b = t.match(/匹数\s*[:：]?\s*(?:(?:[?？]|\d{1,4})\s*[~〜]\s*)?(\d{1,4})/);
   const c = t.match(/(?:[?？]|\d{1,4})\s*匹\s*[~〜]\s*(\d{1,4})\s*匹/);
   const z = t.match(/釣\s?果\s*[:：]?\s*(?:なし|0\s*(?:匹|杯|本))/);
-  count = z ? 0 : num(a) ?? num(b) ?? num(c);
+  // Boat logs: "船中18ハイ" (boat total), else the top rod "竿頭さんは15?16?杯".
+  const d = t.match(/船中\s*(\d{1,4})\s*(?:ハイ|杯|匹|本|尾)/);
+  const e = t.match(/竿頭[^0-9]{0,6}(?:\d{1,3}\s*[?？~〜]\s*)?(\d{1,3})\s*[?？]?\s*(?:ハイ|杯|匹|本|尾)/);
+  count = z ? 0 : num(a) ?? num(d) ?? num(b) ?? num(c) ?? num(e);
   const max = num(t.match(/最大\s*(?:\(?cm\)?)?\s*[:：]?\s*(\d{2,3})\s*(?:cm)?/));
   const wt = t.match(/水温\s*[:：]?\s*(\d{1,2}(?:\.\d)?)\s*(?:[~〜]\s*(\d{1,2}(?:\.\d)?))?\s*(?:℃|°C|度)?/);
   const waterTemp = wt ? (wt[2] ? (+wt[1] + +wt[2]) / 2 : +wt[1]) : null;

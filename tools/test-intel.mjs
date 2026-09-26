@@ -274,6 +274,15 @@ test('single-species tallies: ドーム船, bass rental, eging log, 0 catch', ()
   assert.equal(extractTally('新しいロッドが入荷しました').count, null);
 });
 
+test('boat logs: 船中Nハイ / 竿頭, and a count after a bare mention goes to that fish', () => {
+  assert.equal(extractTally('お客様の頑張りで船中18ハイ(胴長13~18cm)の釣果 竿頭は14ハイ').count, 18);
+  assert.equal(extractTally('ツ抜けした方3名 竿頭さんは15?16?杯と釣果は上向き').count, 16);
+  assert.equal(extractTally('ハイシーズン到来です').count, null);
+  const c = extractCatches('マダイヒット! アジも始まり延長線! ラスト1時間で20匹オーバー').filter((x) => !x.mention);
+  assert.deepEqual(c.map((x) => [x.sp, x.count]), [['aji', 20]]);
+  assert.deepEqual(extractCatches('アジ狙いで行きました。サバ5匹').filter((x) => !x.mention).map((x) => x.sp), ['saba']);
+});
+
 test('HTML entities: decimal and hex (emoji in blog titles)', async () => {
   const { stripHtml } = await import('./intel/extract.mjs');
   assert.equal(stripHtml('【&#x1F991;アオリイカ&#x1F991;】&#12354;&amp;'), '【🦑アオリイカ🦑】あ&');
