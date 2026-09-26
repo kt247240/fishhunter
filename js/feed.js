@@ -10,6 +10,7 @@
   let intel = null;
   let hot = null;
   let book = null;
+  let skill = null;
   const evCache = new Map();
 
   /** Long-term evidence (data/hotspots.json: 60 days of catch DAYS per spot × species × pier zone). */
@@ -29,8 +30,36 @@
     } catch (_) { /* optional */ }
   }
 
+  async function loadSkill() {
+    try {
+      const r = await FH.diag.fetchWithTimeout('data/forecast-skill.json', { cache: 'no-store' }, 10000);
+      const j = await r.json();
+      if (j && j.spots) skill = j;
+    } catch (_) { /* optional */ }
+  }
+
+  /**
+   * Forecast drift at `lead` days (nearest measured lead) — for one spot, or averaged over all.
+   * → { lead, wind: {bias, mae, n}|null, wave: {…}|null, days }
+   */
+  function forecastSkill(lead, spotId = null) {
+    if (!skill) return null;
+    const ids = spotId ? [spotId].filter((id) => skill.spots[id]) : Object.keys(skill.spots);
+    if (!ids.length) return null;
+    const leads = [...new Set(ids.flatMap((id) => Object.keys(skill.spots[id].wind || {}).map(Number)))].sort((a, b) => a - b);
+    if (!leads.length) return null;
+    const L = leads.reduce((a, b) => (Math.abs(b - lead) < Math.abs(a - lead) ? b : a));
+    const avg = (k) => {
+      const xs = ids.map((id) => skill.spots[id][k] && skill.spots[id][k][L]).filter(Boolean);
+      if (!xs.length) return null;
+      const m = (f) => Math.round((xs.reduce((a, x) => a + x[f], 0) / xs.length) * 100) / 100;
+      return { bias: m('bias'), mae: m('mae'), n: Math.min(...xs.map((x) => x.n)) };
+    };
+    return { lead: L, wind: avg('wind'), wave: avg('wave'), days: skill.days };
+  }
+
   async function load() {
-    const hp = Promise.all([loadHot(), loadBook()]);
+    const hp = Promise.all([loadHot(), loadBook(), loadSkill()]);
     try { return await loadIntel(); } finally { await hp; }
   }
   async function loadIntel() {
@@ -251,6 +280,7 @@
     },
     target, hotRank, hotLoaded: () => !!hot,
     daybook: () => book,
+    forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
     load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,

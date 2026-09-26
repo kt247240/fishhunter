@@ -696,3 +696,11 @@ details.more[open] > :not(summary) { animation: rise .35s cubic-bezier(.2, .8, .
 .st-bar i.dn { background: var(--faint); }
 .st-one { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .5; }
 .st-n { font-style: normal; font-size: 10.5px; color: var(--muted); margin-left: 6px; font-weight: 600; }
+.skill-note { color: var(--caution); }
+table.skill { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.skill th, table.skill td { padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--line); }
+table.skill thead th { color: var(--muted); font-weight: 700; }
+table.skill tbody th { text-align: left; color: var(--muted); font-weight: 700; white-space: nowrap; }
+table.skill td b { display: block; font-size: 15px; }
+table.skill td b.warn { color: var(--caution); }
+table.skill td small { color: var(--faint); }

@@ -9,6 +9,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { mergeArchive, buildHotspots, coverage, ARCHIVE_SCHEMA } from './archive.mjs';
 import { loadEngine, buildDaybook } from './daybook.mjs';
+import { skillFor, LEADS } from './skill.mjs';
 import { extractCatches, extractTime, extractColorNotes, extractColors, extractNotices, extractVisitors, matchSpots, snippet, stripHtml, normalize } from './extract.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
@@ -368,6 +369,30 @@ async function pastWeather(FH, spots, start) {
   return data;
 }
 
+/** Forecast drift by lead time for the logged spots → data/forecast-skill.json. */
+async function writeSkill(FH, ids) {
+  const q = (o) => Object.entries(o).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  const json = async (url) => { const r = await get(url, 'application/json'); if (!r.ok) throw new Error('HTTP ' + r.status); return [].concat(await r.json()); };
+  const spots = ids.map((id) => FH.spotById[id]);
+  const vars = (b) => [b, ...LEADS.map((L) => `${b}_previous_day${L}`)].join(',');
+  const toMs = (h) => Object.assign({}, h, { time: h.time.map((t) => t * 1000) });
+  const wx = await json('https://previous-runs-api.open-meteo.com/v1/forecast?' + q({
+    latitude: spots.map((s) => s.lat).join(','), longitude: spots.map((s) => s.lon).join(','),
+    hourly: vars('wind_speed_10m'), wind_speed_unit: 'ms', timezone: 'Asia/Tokyo', timeformat: 'unixtime', past_days: 92, forecast_days: 1
+  }));
+  const sea = spots.filter((s) => s.water === 'sea');
+  const pts = sea.map((s) => { const f = ((s.face || 0) * Math.PI) / 180; return { lat: s.lat + 0.04 * Math.cos(f), lon: s.lon + 0.05 * Math.sin(f) }; });
+  const mar = sea.length ? await json('https://marine-api.open-meteo.com/v1/marine?' + q({
+    latitude: pts.map((p) => p.lat.toFixed(3)).join(','), longitude: pts.map((p) => p.lon.toFixed(3)).join(','),
+    hourly: vars('wave_height'), timezone: 'Asia/Tokyo', timeformat: 'unixtime', past_days: 92, forecast_days: 1
+  })) : [];
+  const out = { schema: 'fishhunter.skill/1', generated_at: new Date(NOW).toISOString(), days: 92, spots: {} };
+  spots.forEach((s, i) => { out.spots[s.id] = { wind: skillFor(toMs(wx[i].hourly), 'wind_speed_10m') }; });
+  sea.forEach((s, i) => { out.spots[s.id].wave = skillFor(toMs(mar[i].hourly), 'wave_height'); });
+  fs.writeFileSync(path.join(path.dirname(OUT), 'forecast-skill.json'), JSON.stringify(out));
+  console.log('forecast skill: ' + Object.entries(out.spots).map(([id, v]) => `${id} wind3=${JSON.stringify(v.wind[3])}`).join(' '));
+}
+
 async function writeDaybook(archive, hot) {
   const FH = loadEngine(root);
   const ids = Object.entries(hot.spots).filter(([id, S]) => id[0] !== '@' && S.reportDays >= 10 && FH.spotById[id]).map(([id]) => id);
@@ -378,6 +403,7 @@ async function writeDaybook(archive, hot) {
   try { data = await pastWeather(FH, ids.map((id) => FH.spotById[id]), start); } catch (e) { console.error('past weather:', e.message); }
   const prev = await previousArchive('daybook.json');
   const book = buildDaybook(FH, archive, ids, data, prev, NOW);
+  try { await writeSkill(FH, ids); } catch (e) { console.error('forecast skill:', e.message); }
   fs.writeFileSync(path.join(path.dirname(OUT), 'daybook.json'), JSON.stringify(book));
   console.log(`daybook: ${book.days.length} spot-days for ${ids.join(', ')} (${book.days.filter((d) => d.c).length} with conditions)`);
 }

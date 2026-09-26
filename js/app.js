@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v25.3.0 STORM';
+  const VERSION = 'v25.4.0 TIDE+SKILL';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -302,7 +302,19 @@
       }
     }
 
-    // 5) Crowding
+    // 5) Forecast drift for this spot
+    const leads = FH.feed.skillLeads ? FH.feed.skillLeads() : [];
+    const rows = leads.map((L) => FH.feed.forecastSkill(L, sp.id)).filter((k) => k && (k.wind || k.wave));
+    if (rows.length) {
+      const fmt = (x, u) => (x ? `<b class="num ${Math.abs(x.bias) >= (u === 'm' ? 0.15 : 0.7) ? 'warn' : ''}">${x.bias > 0 ? '+' : ''}${x.bias.toFixed(u === 'm' ? 2 : 1)}</b><small>±${x.mae.toFixed(u === 'm' ? 2 : 1)}${u}</small>` : '—');
+      html += `<section class="lab-sec"><h4 class="rd-h">📡 予報のブレ <small>何日前の予報が、直前の予報からどれだけズレたか（日中の最大値・過去${rows[0].days}日）</small></h4>
+        <table class="skill"><thead><tr><th></th>${rows.map((k) => `<th>${k.lead}日前</th>`).join('')}</tr></thead><tbody>
+        <tr><th>風 m/s</th>${rows.map((k) => `<td>${fmt(k.wind, 'm/s')}</td>`).join('')}</tr>
+        ${sp.water === 'sea' ? `<tr><th>波 m</th>${rows.map((k) => `<td>${fmt(k.wave, 'm')}</td>`).join('')}</tr>` : ''}</tbody></table>
+        <p class="muted small">マイナス＝予報が弱め・低めに出ていた。予報どうしの比較なので、実測との差ではありません。</p></section>`;
+    }
+
+    // 6) Crowding
     const cr = I.crowd(book, sp.id, 6, state.now);
     if (cr.n >= 5) {
       const cell = (label, v) => `<div class="lab-crowd-c"><span>${label}</span><b class="num">${v == null ? '—' : v}</b><small>${v == null ? '' : '名'}</small></div>`;
@@ -633,6 +645,18 @@
     }).catch(() => local());
   }
 
+  /** Measured forecast drift for this many days ahead (from data/forecast-skill.json). */
+  function skillNote(lead) {
+    if (lead < 2) return '';
+    const k = FH.feed.forecastSkill ? FH.feed.forecastSkill(lead) : null;
+    if (!k) return lead > 3 ? '<p class="muted small">※3日以上先の予報は精度が下がります</p>' : '';
+    const parts = [];
+    if (k.wind && Math.abs(k.wind.bias) >= 0.7) parts.push(`風は平均${Math.abs(k.wind.bias).toFixed(1)}m/s${k.wind.bias < 0 ? '弱め' : '強め'}に出がち`);
+    if (k.wave && Math.abs(k.wave.bias) >= 0.15) parts.push(`波は平均${Math.abs(k.wave.bias).toFixed(1)}m${k.wave.bias < 0 ? '低め' : '高め'}に出がち`);
+    if (!parts.length) return `<p class="muted small">📡 ${k.lead}日前の予報のブレ：風±${k.wind ? k.wind.mae.toFixed(1) : '—'}m/s・波±${k.wave ? k.wave.mae.toFixed(1) : '—'}m（過去${k.days}日の実績）</p>`;
+    return `<p class="small skill-note">📡 過去${k.days}日の実績では、${k.lead}日前の予報は${parts.join('、')}。${k.wind && k.wind.bias <= -0.7 ? '風は強めに見積もってください。' : ''}</p>`;
+  }
+
   function renderWeekend(mine, wk) {
     wk = wk || E.weekend(state.data, state.now, { limit: 3, filter: mine ? FH.prefs.matches : null });
     $('#wkHint').textContent = mine ? 'あなたのエリア・魚種から土日のベスト3' : '土日のベスト3（全域）';
@@ -646,7 +670,7 @@
               <span><b>${esc(p.spot.name)}</b> × ${esc(p.sp.name)}<br><small>${hm(p.win.start)}〜${hm(p.win.end)} ・ ${esc(p.win.tags.slice(0, 2).join('・'))}</small></span>
             </li>`).join('')}</ol>`
           : '<p class="muted small">目立った時合がありません（荒天・シーズンオフ）。</p>'}
-        ${d.inRange && d.day - state.now > 3 * 86400e3 ? '<p class="muted small">※3日以上先の予報は精度が下がります</p>' : ''}
+        ${d.inRange ? skillNote(Math.round((d.day - state.now) / 86400e3)) : ''}
       </article>`).join('');
   }
 

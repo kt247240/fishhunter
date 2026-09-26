@@ -218,7 +218,7 @@
   }
 
   const WEIGHTS = {
-    sea: { time: 0.28, temp: 0.18, env: 0.22, pressure: 0.1, solunar: 0.1, tide: 0.12 },
+    sea: { time: 0.3, temp: 0.2, env: 0.3, pressure: 0.1, solunar: 0.08, tide: 0.02 },
     river: { time: 0.25, temp: 0.25, env: 0.3, pressure: 0.1, solunar: 0.1 },
     lake: { time: 0.28, temp: 0.25, env: 0.17, pressure: 0.15, solunar: 0.15 }
   };
@@ -242,7 +242,7 @@
       f.env = (ws == null ? 0.6 : ws) * 0.45 + (wi == null ? 0.6 : wi) * 0.3 + cl * 0.25;
       notes.env = `波 ${c.wave == null ? '—' : c.wave.toFixed(1) + 'm'} / 風 ${c.wind == null ? '—' : c.wind.toFixed(0) + 'm/s ' + compass(c.windDir)}${c.onshore > 0.5 ? '（向かい風）' : c.onshore < -0.5 ? '（追い風）' : ''} / ${c.murk > 0.55 ? '濁り強' : c.murk > 0.25 ? 'ささ濁り' : '澄み'}`;
       f.tide = c.tide.strength;
-      notes.tide = c.tide.name + '（日本海は潮位差が小さく影響は控えめ）';
+      notes.tide = c.tide.name + '（日本海は潮位差が日中15cm程度。釣果の実績でも差はほぼなし）';
     } else if (spot.water === 'river') {
       const fl = flowScore(sp, c);
       const wi = windScore(sp, c.wind) || 0.7;

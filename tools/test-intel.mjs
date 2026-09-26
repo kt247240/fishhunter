@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
+import { dailyMax, drift, skillFor } from './intel/skill.mjs';
 import { zoneKeys, zoneLabel, mergeArchive, buildHotspots, coverage } from './intel/archive.mjs';
 import { extractColors, extractCatches, extractTime, extractColorNotes, matchSpots, positionOf, extractVisitors } from './intel/extract.mjs';
 
@@ -193,6 +194,20 @@ test('insight: analogs prefer same season + similar sea; season flow; crowd', ()
   const t0 = Date.parse('2026-09-10T00:00:00+09:00');
   const marine = { P: { time: Array.from({ length: 24 * 8 }, (_, h) => t0 + h * 3600e3), wave: Array.from({ length: 24 * 8 }, (_, h) => (h >= 24 && h < 36 ? 2.0 : 0.5)) } };
   assert.equal(I.daysSinceStorm({ id: 'P' }, '2026-09-14', { marine }), 3);
+});
+
+test('forecast drift: daytime max per day, bias and MAE by lead', () => {
+  const t0 = Date.parse('2026-09-01T00:00:00+09:00');
+  const n = 24 * 12;
+  const time = Array.from({ length: n }, (_, h) => t0 + h * 3600e3);
+  const wind = time.map((_, h) => 5 + (h % 24 === 12 ? 3 : 0));        // daytime max 8
+  const prev3 = time.map((_, h) => 4 + (h % 24 === 12 ? 2.5 : 0));     // daytime max 6.5 → −1.5
+  const hourly = { time, wind_speed_10m: wind, wind_speed_10m_previous_day3: prev3 };
+  assert.equal(dailyMax(hourly, 'wind_speed_10m')['2026-09-02'], 8);
+  const k = skillFor(hourly, 'wind_speed_10m');
+  assert.equal(k[3].bias, -1.5); assert.equal(k[3].mae, 1.5); assert.equal(k[3].n, 12);
+  assert.equal(k[1], undefined);
+  assert.equal(drift({ a: 1 }, { a: 2 }), null, 'too few days');
 });
 
 console.log(`\nFishHunter intel tests: ${passed} passed`);
