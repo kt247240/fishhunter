@@ -20,8 +20,8 @@
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#04111c'; ctx.fillRect(0, 0, W, H);
 
-    // Scene snapshot (cover-fit into the top 56%)
-    const sh = H * 0.56;
+    // Scene snapshot (cover-fit into the top 56%; 34% when the card carries a plan)
+    const sh = H * (o.plan ? 0.22 : 0.56);
     if (o.scene && o.scene.width) {
       const s = Math.max(W / o.scene.width, sh / o.scene.height);
       const dw = o.scene.width * s, dh = o.scene.height * s;
@@ -71,6 +71,8 @@
     y += 70; ctx.fillStyle = '#cfe3ee'; ctx.font = `800 48px ${FONT}`;
     ctx.fillText('× ' + short(o.fish.name), 64, y);
 
+    if (o.plan) { drawPlan(ctx, o.plan, y + 56, W, H); footer(ctx, o, W, H); return cv; }
+
     // Window
     y += 70;
     roundRect(ctx, 56, y - 44, W - 112, 96, 24);
@@ -98,14 +100,47 @@
       x += w + 12;
     }
 
-    // Footer
+    footer(ctx, o, W, H);
+    return cv;
+  }
+
+  function footer(ctx, o, W, H) {
+    ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(232,246,255,.5)'; ctx.font = `500 22px ${FONT}`;
     ctx.fillText('※スコアは条件の一致度で、釣れる確率ではありません。安全第一で。', 64, H - 96);
     ctx.fillStyle = '#7ee9ff'; ctx.font = `700 24px ${FONT}`;
     ctx.fillText('#FishHunter  #時合を読め', 64, H - 56);
     ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(232,246,255,.6)'; ctx.font = `600 22px ${FONT}`;
     ctx.fillText(FH.ui.md(o.now) + ' ' + FH.ui.hm(o.now) + ' 時点', W - 64, H - 56);
-    return cv;
+    ctx.textAlign = 'left';
+  }
+
+  /** Wrap Japanese text by character into at most `max` lines. */
+  function wrap(ctx, text, width, max) {
+    const lines = []; let cur = '';
+    for (const ch of String(text)) {
+      if (ctx.measureText(cur + ch).width > width) { lines.push(cur); cur = ch; if (lines.length === max) break; }
+      else cur += ch;
+    }
+    if (lines.length < max && cur) lines.push(cur);
+    if (lines.length === max && lines.join('').length < String(text).length) lines[max - 1] = lines[max - 1].slice(0, -1) + '…';
+    return lines;
+  }
+
+  /** Plan rows [{ic, k, v, sub}] as a compact stacked list under the title (all five must fit). */
+  function drawPlan(ctx, rows, y, W, H) {
+    const x = 64, tx = x + 64, tw = W - tx - 56, limit = H - 130;
+    rows.forEach((r, i) => {
+      if (y > limit - 40) return;
+      const long = i >= 3; // なぜ / 注意: no sub line, value may wrap to 2
+      ctx.font = `700 21px ${FONT}`; ctx.fillStyle = '#7ee9ff'; ctx.fillText(r.k, tx, y);
+      ctx.font = `36px ${FONT}`; ctx.fillStyle = '#fff'; ctx.fillText(r.ic, x, y + 30);
+      y += 36;
+      ctx.font = `800 28px ${FONT}`; ctx.fillStyle = '#e8f6ff';
+      for (const ln of wrap(ctx, r.v, tw, 2)) { ctx.fillText(ln, tx, y); y += 36; }
+      if (r.sub && !long) { ctx.font = `500 22px ${FONT}`; ctx.fillStyle = 'rgba(207,227,238,.75)'; for (const ln of wrap(ctx, r.sub, tw, 1)) { ctx.fillText(ln, tx, y); y += 30; } }
+      y += 12;
+    });
   }
 
   function toBlob(cv) { return new Promise((res) => cv.toBlob(res, 'image/png')); }
@@ -113,9 +148,9 @@
   async function shareCard(o) {
     const cv = card(o);
     const blob = await toBlob(cv);
-    const name = `fishhunter-${o.spot.id}-${o.fish.id}.png`;
-    const text = `${o.spot.name} × ${o.fish.name}｜スコア ${o.score == null ? '–' : o.score}` +
-      (o.win ? `｜次の時合 ${FH.ui.range(o.win.start, o.win.end, o.now)}` : '') + '\n#FishHunter #時合を読め';
+    const name = `fishhunter-${o.plan ? 'plan-' : ''}${o.spot.id}-${o.fish.id}.png`;
+    const text = o.text || (`${o.spot.name} × ${o.fish.name}｜スコア ${o.score == null ? '–' : o.score}` +
+      (o.win ? `｜次の時合 ${FH.ui.range(o.win.start, o.win.end, o.now)}` : '') + '\n#FishHunter #時合を読め');
     const file = typeof File !== 'undefined' ? new File([blob], name, { type: 'image/png' }) : null;
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], text, title: 'FishHunter' }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }

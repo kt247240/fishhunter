@@ -66,10 +66,11 @@
     return n;
   }
 
+  const caught = (x) => (x.count ?? 1) > 0; // count 0 = ボウズ (a logged trip without a catch)
   const pressureBucket = (dp3) => (dp3 == null ? null : dp3 <= -0.5 ? '下降' : dp3 >= 0.5 ? '上昇' : '安定');
   function tally(list, fn) {
     const m = {};
-    list.forEach((x) => { const k = fn(x); if (k != null) m[k] = (m[k] || 0) + (x.count || 1); });
+    list.forEach((x) => { const k = fn(x); if (k != null) m[k] = (m[k] || 0) + (x.count ?? 1); });
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }
 
@@ -77,11 +78,12 @@
   function analyze(speciesId) {
     const key = speciesId || '*';
     if (statCache.has(key)) return statCache.get(key);
-    const list = read().filter((x) => !speciesId || x.speciesId === speciesId);
-    const fish = list.reduce((s, x) => s + (x.count || 1), 0);
+    const mine = read().filter((x) => !speciesId || x.speciesId === speciesId);
+    const list = mine.filter(caught); // patterns are learned from catches only
+    const fish = list.reduce((s, x) => s + (x.count ?? 1), 0);
     const sizes = list.map((x) => x.size).filter((x) => x > 0);
     const r = {
-      entries: list.length, fish,
+      entries: list.length, blanks: mine.length - list.length, fish,
       maxSize: sizes.length ? Math.max(...sizes) : null,
       avgSize: sizes.length ? Math.round((sizes.reduce((a, b) => a + b, 0) / sizes.length) * 10) / 10 : null,
       byLight: tally(list, (x) => x.cond && x.cond.light),
@@ -113,5 +115,34 @@
     return { bonus: Math.min(6, bonus), note: why.join('・') };
   }
 
-  FH.catchlog = { add, remove, all, analyze, personalBoost, snapshot, exportJSON, importJSON, on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
+  /**
+   * 予測の答え合わせ: trips (same spot × species × JST day) that carry the score at log time.
+   * → { trips: [{ day, spotId, speciesId, score, count }], buckets: [{ label, lo, hi, n, hit, rate, avg }], verdicts }
+   */
+  function review(speciesId) {
+    const groups = new Map();
+    for (const x of read()) {
+      if (speciesId && x.speciesId !== speciesId) continue;
+      const sc = x.cond && x.cond.score;
+      if (sc == null) continue;
+      const day = new Date(x.t + 9 * 3600e3).toISOString().slice(0, 10);
+      const k = [x.spotId, x.speciesId, day].join('|');
+      const g2 = groups.get(k) || { day, t: x.t, spotId: x.spotId, speciesId: x.speciesId, scores: [], count: 0 };
+      g2.scores.push(sc); g2.count += x.count ?? 1; g2.t = Math.max(g2.t, x.t);
+      groups.set(k, g2);
+    }
+    const trips = [...groups.values()].map((t) => ({ day: t.day, t: t.t, spotId: t.spotId, speciesId: t.speciesId, count: t.count,
+      score: Math.round(t.scores.reduce((a, b) => a + b, 0) / t.scores.length) })).sort((a, b) => b.t - a.t);
+    const B = [['〜49', 0, 50], ['50〜69', 50, 70], ['70〜84', 70, 85], ['85〜', 85, 101]];
+    const buckets = B.map(([label, lo, hi]) => {
+      const xs = trips.filter((t) => t.score >= lo && t.score < hi);
+      const hit = xs.filter((t) => t.count > 0).length;
+      return { label, lo, hi, n: xs.length, hit, rate: xs.length ? hit / xs.length : null, avg: xs.length ? xs.reduce((a, t) => a + t.count, 0) / xs.length : null };
+    });
+    const verdict = (t) => (t.score >= 70 ? (t.count > 0 ? 'hit' : 'over') : t.score < 50 ? (t.count > 0 ? 'under' : 'hit') : 'mid');
+    trips.forEach((t) => { t.verdict = verdict(t); });
+    return { trips, buckets };
+  }
+
+  FH.catchlog = { add, review, remove, all, analyze, personalBoost, snapshot, exportJSON, importJSON, on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

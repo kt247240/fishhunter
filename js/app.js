@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v28.0.0 PLAN';
+  const VERSION = 'v29.0.0 FASTER';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -135,6 +135,10 @@
     el.innerHTML = msg; el.hidden = false;
   }
 
+  // Per-section render cost (ms) of the last NOW render, for 診断 and perf work.
+  const perf = {};
+  function timed(name, fn) { const t = performance.now(); try { return fn(); } finally { perf[name] = Math.round(performance.now() - t); } }
+
   /* ── NOW ── */
   function renderNow() {
     const sp = spot(), fish = species(), d = state.data;
@@ -182,7 +186,7 @@
     } else $('#factorSummary').innerHTML = '';
 
     // Windows
-    const ser = E.series(sp, fish, d, now, 72);
+    const ser = timed('series', () => E.series(sp, fish, d, now, 72));
     const wins = E.windows(ser, { min: 45, limit: 4 });
     state.wins = wins;
     const tac0 = c.hasWx ? E.tactics(sp, fish, c) : null;
@@ -191,16 +195,16 @@
         <span class="win-act"><button type="button" class="mini" data-cal="${i}" title="カレンダーに追加（30分前に通知）" aria-label="カレンダーに追加">📅</button><a class="mini" href="${FH.share.googleCalUrl(sp, fish, w, tac0)}" target="_blank" rel="noopener" title="Googleカレンダーに追加" aria-label="Googleカレンダーに追加">G</a></span></li>`).join('')
       : '<li><span></span><span class="muted">72時間以内に目立った時合はありません。条件の良い別の釣り場・魚種も検討を。</span><span></span></li>';
 
-    renderField(sp, c);
-    renderAstro(sp);
-    renderChart(sp, fish, now);
-    renderHero(sp, fish, c, cur, wins, now);
-    renderPlan(sp, fish, cur, wins, now);
-    renderRadar(sp, fish);
-    renderTarget(sp, fish);
-    renderLab(sp, fish);
-    renderOfficial(sp, fish);
-    renderPicks();
+    timed('field', () => renderField(sp, c));
+    timed('astro', () => renderAstro(sp));
+    timed('chart', () => renderChart(sp, fish, now));
+    timed('hero', () => renderHero(sp, fish, c, cur, wins, now));
+    timed('plan', () => renderPlan(sp, fish, cur, wins, now));
+    timed('radar', () => renderRadar(sp, fish));
+    timed('target', () => renderTarget(sp, fish));
+    timed('lab', () => renderLab(sp, fish));
+    timed('official', () => renderOfficial(sp, fish));
+    timed('picks', () => renderPicks());
   }
 
   /* 🏛 Official open data: prefecture sea survey, set-net landings, river discharge. */
@@ -390,9 +394,10 @@
     const r = E.score(sp, fish, c, hookOpts(sp, fish, c));
     const tac = E.tactics(sp, fish, c);
     const name = shortName(fish.name);
-    const rows = [];
+    const rows = [], plain = [];
     const text = [`【${sp.name} × ${name}】FishHunter 作戦`];
-    const add = (ic, k, v, sub) => { rows.push(`<div class="pl-row"><span class="pl-ic">${ic}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
+    const strip = (x) => String(x || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    const add = (ic, k, v, sub) => { plain.push({ ic, k, v: strip(v), sub: strip(sub) }); rows.push(`<div class="pl-row"><span class="pl-ic">${ic}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
 
     // いつ
     if (w) add('⏰', 'いつ', `<b>${esc(range(w.start, w.end, now))}</b> ・ ピーク <b class="num">${w.peak}</b>`, esc(w.tags.join('・')));
@@ -442,6 +447,7 @@
     $('#planScope').textContent = w ? `ピーク ${hm(w.peakT)} 時点の条件で作成` : '';
     $('#plan').innerHTML = rows.join('');
     state.planText = text.join('\n') + '\n' + location.origin + location.pathname;
+    state.plan = { rows: plain, score: w ? w.peak : r.score, win: w, cond: c };
   }
 
   /* 🎯 Evidence-backed target: how often it was caught here, where on the pier, how — counted in days. */
@@ -775,6 +781,27 @@
     return `<p class="small skill-note">📡 過去${k.days}日の実績では、${k.lead}日前の予報は${parts.join('、')}。${k.wind && k.wind.bias <= -0.7 ? '風は強めに見積もってください。' : ''}</p>`;
   }
 
+  /** ★ favourites side by side for the weekend (engine.favCompare). */
+  function renderFavCompare() {
+    const box = $('#favCompare');
+    const P = FH.prefs.get();
+    if (!state.data) { box.innerHTML = ''; return; }
+    if (!P.favorites.length) {
+      box.innerHTML = '<p class="muted small fc-hint">★ 釣り場をお気に入り登録すると、土日のどこ・いつが一番かを並べて比べられます。</p>';
+      return;
+    }
+    const fc = E.favCompare(state.data, state.now, P.favorites, { species: P.species });
+    if (!fc.rows.length || !fc.days.some((d) => d.inRange)) { box.innerHTML = '<p class="muted small fc-hint">★ お気に入りの週末比較：まだ予報の範囲外です。</p>'; return; }
+    const top = fc.rows[0];
+    const cell = (v, isBest) => `<td class="${v == null ? 'na' : 'tone-' + tone(v)}${isBest ? ' best' : ''}">${v == null ? '—' : v}</td>`;
+    box.innerHTML = `<div class="card fc-card"><div class="card-head"><h3>★ お気に入りの週末比較 <small>各釣り場のいちばん良い魚種・時間帯のピーク</small></h3></div>
+      <p class="tg-call">👉 いちばん良いのは <b>${esc(top.spot.name)} × ${esc(shortName(top.sp.name))}</b>、<b>${fc.days[top.best.d].label}曜の${fc.blocks[top.best.b]}</b>（ピーク ${top.best.score}）</p>
+      <div class="fc-wrap"><table class="fc"><thead><tr><th rowspan="2"></th>${fc.days.map((d) => `<th colspan="4">${d.label} ${md(d.day)}</th>`).join('')}</tr>
+        <tr>${fc.days.map(() => fc.blocks.map((b) => `<th>${b}</th>`).join('')).join('')}</tr></thead>
+        <tbody>${fc.rows.map((r) => `<tr class="fc-row" data-spot="${r.spot.id}" data-sp="${r.sp.id}" tabindex="0" role="button"><th><b>${esc(r.spot.name)}</b><small>${esc(shortName(r.sp.name))}</small></th>${r.cells.map((row, di) => row.map((v, bi) => cell(v, di === r.best.d && bi === r.best.b)).join('')).join('')}</tr>`).join('')}</tbody></table></div>
+      <p class="muted small">荒天で危険な時間は除外。数字をタップするとその釣り場を表示します。</p></div>`;
+  }
+
   function renderWeekend(mine, wk) {
     wk = wk || E.weekend(state.data, state.now, { limit: 3, filter: mine ? FH.prefs.matches : null });
     $('#wkHint').textContent = mine ? 'あなたのエリア・魚種から土日のベスト3' : '土日のベスト3（全域）';
@@ -790,6 +817,7 @@
           : '<p class="muted small">目立った時合がありません（荒天・シーズンオフ）。</p>'}
         ${d.inRange ? skillNote(Math.round((d.day - state.now) / 86400e3)) : ''}
       </article>`).join('');
+    renderFavCompare();
   }
 
   /* ── MAP ── */
@@ -970,10 +998,23 @@
     return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 9 * HOUR;
   }
 
+  /** 🎯 予測の答え合わせ: score at log time vs what actually happened. */
+  function reviewHtml(speciesId) {
+    const rv = FH.catchlog.review(speciesId);
+    if (!rv.trips.length) return '';
+    const V = { hit: ['✓', '的中'], over: ['✗', '予測が高すぎ'], under: ['✗', '予測が低すぎ'], mid: ['△', '中間'] };
+    const hits = rv.trips.filter((t) => t.verdict === 'hit').length, judged = rv.trips.filter((t) => t.verdict !== 'mid').length;
+    return `<div class="review"><h4 class="rd-h">🎯 予測の答え合わせ <small>記録した釣行 ${rv.trips.length}回（同じ日・釣り場・魚種は1回）</small></h4>
+      ${judged ? `<p class="tg-call">スコア70以上で釣れた／50未満で釣れなかった＝的中：<b>${hits}/${judged}回</b>${rv.trips.length < 5 ? '（5回以上で傾向が見えてきます）' : ''}</p>` : ''}
+      <table class="skill"><thead><tr><th>記録時のスコア</th><th>釣行</th><th>釣れた</th><th>平均匹数</th></tr></thead><tbody>
+      ${rv.buckets.map((b) => `<tr><th>${b.label}</th><td>${b.n}</td><td>${b.rate == null ? '—' : Math.round(b.rate * 100) + '%'}</td><td>${b.avg == null ? '—' : b.avg.toFixed(1)}</td></tr>`).join('')}</tbody></table>
+      <ul class="rv-list">${rv.trips.slice(0, 5).map((t) => `<li class="rv-${t.verdict}"><b>${V[t.verdict][0]}</b> ${md(t.t)} ${esc((FH.spotById[t.spotId] || {}).name || t.spotId)} × ${esc(shortName((FH.speciesById[t.speciesId] || { name: t.speciesId }).name))} ・ スコア${t.score} → ${t.count ? t.count + '匹' : 'ボウズ'} <span class="muted small">${V[t.verdict][1]}</span></li>`).join('')}</ul></div>`;
+  }
+
   function renderAnalysis(speciesId) {
     const a = FH.catchlog.analyze(speciesId);
     const el = $('#analysis');
-    if (!a.entries) {
+    if (!a.entries && !a.blanks) {
       el.innerHTML = '<div class="empty">まだ記録がありません。<br>釣果を3件以上記録すると、あなたの「釣れる条件」を学習してスコアに反映します。</div>';
       return;
     }
@@ -988,9 +1029,9 @@
     if (top(a.byTide)) lines.push(`<b>${esc(top(a.byTide))}</b>で実績多`);
     if (top(a.byPressure)) lines.push(`気圧<b>${esc(top(a.byPressure))}</b>時に好調`);
     if (top(a.byColor)) lines.push(`カラーは<b>${esc(top(a.byColor))}</b>`);
-    el.innerHTML = `
+    el.innerHTML = reviewHtml(speciesId) + `
       <div class="stat-row">
-        <div class="stat"><b>${a.entries}</b><span>記録</span></div>
+        <div class="stat"><b>${a.entries}</b><span>記録${a.blanks ? `（ボウズ${a.blanks}）` : ''}</span></div>
         <div class="stat"><b>${a.fish}</b><span>釣果数</span></div>
         <div class="stat"><b>${a.maxSize == null ? '–' : a.maxSize}</b><span>最大cm</span></div>
         <div class="stat"><b>${a.avgScore == null ? '–' : a.avgScore}</b><span>平均スコア</span></div>
@@ -1022,7 +1063,7 @@
       el.innerHTML = list.length ? list.slice(0, 60).map((x) => {
         const s = FH.spotById[x.spotId], f = FH.speciesById[x.speciesId];
         return `<article class="post">${x.photo ? `<img src="${x.photo}" alt="${esc((f && f.name) || '')}の写真" loading="lazy">` : ''}
-          <div class="body"><h4>${esc(f ? f.name : x.speciesId)}${x.size ? ` ${x.size}cm` : ''}${x.count > 1 ? ` ×${x.count}` : ''}</h4>
+          <div class="body"><h4>${esc(f ? f.name : x.speciesId)}${x.count === 0 ? ' <span class="chip">ボウズ</span>' : ''}${x.size ? ` ${x.size}cm` : ''}${x.count > 1 ? ` ×${x.count}` : ''}</h4>
           <div class="meta">${md(x.t)} ${hm(x.t)} ・ ${esc(s ? s.name : x.spotId)}${x.method ? ' ・ ' + esc(x.method) : ''}${x.lure ? ' ・ ' + esc(x.lure) : ''}${x.lureColor ? '（' + esc(x.lureColor) + '）' : ''}</div>
           ${condChips(x.cond)}${x.memo ? `<div class="memo">${esc(x.memo)}</div>` : ''}
           <div class="foot"><span class="muted">${ago(x.created || x.t)}に記録</span><button class="del" data-del="${x.id}" type="button">削除</button></div></div></article>`;
@@ -1068,14 +1109,15 @@
     try {
       saved = FH.catchlog.add({
         t, spotId: sp.id, speciesId: fish.id,
-        size: parseFloat(form.size.value) || null, count: parseInt(form.count.value, 10) || 1,
+        size: form.blank.checked ? null : parseFloat(form.size.value) || null, count: form.blank.checked ? 0 : parseInt(form.count.value, 10) || 1,
         method: form.method.value, lure: form.lure.value.trim(), lureColor: form.lureColor.value.trim(),
         memo: form.memo.value.trim(), photo, cond
       });
     } catch (e) { FH.ui.toast(e.message, 4000); return; }
-    const share = form.share && form.share.checked && FH.community.enabled();
-    form.size.value = ''; form.memo.value = ''; form.photo.value = ''; form.count.value = 1;
-    FH.ui.toast(`🎣 ${fish.name}を記録しました${share ? '（共有中…）' : ''}`);
+    const blank = form.blank.checked;
+    const share = !blank && form.share && form.share.checked && FH.community.enabled();
+    form.size.value = ''; form.memo.value = ''; form.photo.value = ''; form.count.value = 1; form.blank.checked = false;
+    FH.ui.toast(blank ? '📝 ボウズも記録しました。答え合わせに使います' : `🎣 ${fish.name}を記録しました${share ? '（共有中…）' : ''}`);
     if (share) {
       FH.community.post(saved).then(async () => {
         FH.ui.toast('🌐 みんなの釣果に匿名で共有しました');
@@ -1178,13 +1220,20 @@
     $('#spotPick').addEventListener('change', (e) => select(e.target.value, null, { focusMap: true }));
     $('#huntTarget').addEventListener('change', (e) => select(null, e.target.value));
     $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { show(b.dataset.tab); g.scrollTo({ top: 0 }); } });
+    $('#btnPlanImg').addEventListener('click', async () => {
+      if (!state.plan) return;
+      FH.ui.toast('作戦の画像を作成中…', 1200);
+      const r = await FH.share.shareCard({ spot: spot(), fish: species(), score: state.plan.score, win: state.plan.win, cond: state.plan.cond, scene: $('#scene'), now: state.now,
+        plan: state.plan.rows, text: state.planText + '\n#FishHunter #時合を読め' });
+      if (r === 'downloaded') FH.ui.toast('画像を保存しました（作戦の文章はコピー済み）');
+    });
     $('#btnPlanCopy').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(state.planText || ''); FH.ui.toast('作戦をコピーしました'); }
       catch (_) { FH.ui.toast('コピーできませんでした'); }
     });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      const hs = e.target.closest && e.target.closest('[data-hot-spot]');
+      const hs = e.target.closest && e.target.closest('[data-hot-spot], .fc-row');
       if (hs) { e.preventDefault(); hs.click(); }
     });
     document.addEventListener('click', (e) => {
@@ -1198,6 +1247,8 @@
       if (hs) { select(hs.dataset.hotSpot, species().id, { scrollTop: false }); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const rsp = e.target.closest('[data-rsp]');
       if (rsp) { select(null, rsp.dataset.rsp); return; }
+      const fr = e.target.closest('.fc-row');
+      if (fr) { select(fr.dataset.spot, fr.dataset.sp); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const wk = e.target.closest('.wk-row');
       if (wk) { select(wk.dataset.spot, wk.dataset.sp); $('.focus').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       const chip = e.target.closest('#spotChips [data-sp]');
@@ -1372,5 +1423,5 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-  FH.app = { state, select, show, VERSION };
+  FH.app = { state, select, show, VERSION, perf };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

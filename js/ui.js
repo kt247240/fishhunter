@@ -92,19 +92,29 @@
       return { W, H, pad, pw: W - pad.l - pad.r, ph: H - pad.t - pad.b };
     }
 
-    function draw() {
-      const ser = state.series;
+    // Geometry and theme colours are measured once per update/resize, not per animation frame
+    // (each read forced layout/style recalculation ~60×/s during the draw-in animation).
+    let measured = null;
+    function measure() {
       const dpr = Math.min(3, g.devicePixelRatio || 1);
       const G = geometry();
-      canvas.width = Math.round(G.W * dpr); canvas.height = Math.round(G.H * dpr);
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, G.W, G.H);
-      if (!ser.length) return;
       const C = {
         text: cssVar('--muted'), faint: cssVar('--faint'), line: cssVar('--line'), accent: cssVar('--accent'),
         accent2: cssVar('--accent-2'), hot: cssVar('--hot'), night: cssVar('--night'), danger: cssVar('--danger')
       };
+      const w = Math.round(G.W * dpr), h = Math.round(G.H * dpr);
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      measured = { dpr, G, C };
+    }
+
+    function draw(fresh = true) {
+      const ser = state.series;
+      if (fresh || !measured) measure();
+      const { dpr, G, C } = measured;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, G.W, G.H);
+      if (!ser.length) return;
       const t0 = ser[0].t, t1 = ser[ser.length - 1].t + HOUR;
       const X = (t) => G.pad.l + ((t - t0) / (t1 - t0)) * G.pw;
       const Y = (s) => G.pad.t + (1 - s / 100) * G.ph;
@@ -241,18 +251,18 @@
       const i = Math.floor(((x - G.pad.l) / G.pw) * state.series.length);
       if (i < 0 || i >= state.series.length) return onLeave();
       if (i !== state.hover) {
-        state.hover = i; draw(); showTip(i);
+        state.hover = i; draw(false); showTip(i);
         // Light haptic tick per hour while scrubbing with a finger.
         if (ev.pointerType === 'touch' && navigator.vibrate) { try { navigator.vibrate(4); } catch (_) { /* unsupported */ } }
       }
     }
-    function onLeave() { state.hover = null; if (tip) tip.hidden = true; draw(); }
+    function onLeave() { state.hover = null; if (tip) tip.hidden = true; draw(false); }
 
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerdown', onMove);
     canvas.addEventListener('pointerleave', onLeave);
-    if (g.ResizeObserver) new ResizeObserver(() => draw()).observe(canvas);
-    else g.addEventListener('resize', draw);
+    if (g.ResizeObserver) new ResizeObserver(() => draw(true)).observe(canvas);
+    else g.addEventListener('resize', () => draw(true));
 
     return {
       update(series, opts = {}) {
@@ -261,7 +271,8 @@
         cancelAnimationFrame(state.anim);
         if (FH.motion && FH.motion.reduce()) { state.prog = 1; draw(); return; }
         const t0 = performance.now();
-        const step = (now) => { state.prog = Math.min(1, (now - t0) / 1100); state.prog = 1 - Math.pow(1 - state.prog, 3); draw(); if (state.prog < 1) state.anim = requestAnimationFrame(step); };
+        measure();
+        const step = (now) => { state.prog = Math.min(1, (now - t0) / 1100); state.prog = 1 - Math.pow(1 - state.prog, 3); draw(false); if (state.prog < 1) state.anim = requestAnimationFrame(step); };
         state.prog = 0; state.anim = requestAnimationFrame(step);
       },
       redraw: draw,

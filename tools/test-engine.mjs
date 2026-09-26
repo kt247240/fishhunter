@@ -202,4 +202,20 @@ test('急潮【警戒】 adds a caution for the zone\'s spots only', () => {
   } finally { FH.feed.kyucho = keep; }
 });
 
+test('catch log: ボウズ trips count for the review but not for learned patterns', () => {
+  const L = FH.catchlog;
+  const base = Date.parse('2026-09-20T06:00:00+09:00');
+  const mk = (d, count, score) => L.add({ t: base + d * 86400e3, spotId: 'naoetsu', speciesId: 'kisu', count, cond: { light: '朝マズメ', score } });
+  mk(0, 3, 82); mk(1, 0, 88); mk(2, 0, 40); mk(3, 2, 60); mk(3, 1, 64);
+  const a = L.analyze('kisu');
+  assert.equal(a.entries, 3); assert.equal(a.blanks, 2); assert.equal(a.fish, 6);
+  const rv = L.review('kisu');
+  assert.equal(rv.trips.length, 4, 'two entries on the same day are one trip');
+  const b85 = rv.buckets.find((b) => b.label === '85〜'), b70 = rv.buckets.find((b) => b.label === '70〜84');
+  assert.equal(b85.n, 1); assert.equal(b85.hit, 0); assert.equal(b70.rate, 1);
+  assert.equal(rv.trips.find((t) => t.score === 88).verdict, 'over');
+  assert.equal(rv.trips.find((t) => t.score === 40).verdict, 'hit');
+  L.all().filter((x) => x.speciesId === 'kisu').forEach((x) => L.remove(x.id));
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

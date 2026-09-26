@@ -432,6 +432,44 @@
    * Upcoming Saturday & Sunday (JST; today counts if it is the weekend).
    * Returns [{ day, label, start, inRange, picks }] — picks only when forecast covers it.
    */
+  const BLOCKS = [['朝', 4, 9], ['昼', 9, 15], ['夕', 15, 19], ['夜', 19, 24]];
+  /**
+   * Favourite spots side by side for Sat/Sun: per spot the species with the best weekend peak, and its
+   * best score in each block (朝 04–09 / 昼 09–15 / 夕 15–19 / 夜 19–24). Dangerous hours don't count.
+   * → { days: [{ day, label, inRange }], blocks, rows: [{ spot, sp, cells: [[score|null ×4] ×2], best: {d, b, score} }] }
+   */
+  function favCompare(data, now, spotIds, { species = [] } = {}) {
+    const a = A();
+    const today = a.jstMidnight(new Date(now)).getTime();
+    const dow = a.jstParts(new Date(now)).dow;
+    const toSat = dow === 0 ? -1 : (6 - dow);
+    const end = dataEnd(data);
+    const days = [0, 1].map((i) => { const d = today + (toSat + i) * 24 * HOUR; return { day: d, label: i ? '日' : '土', inRange: d + 6 * HOUR < end && d + 24 * HOUR > now }; });
+    const rows = [];
+    for (const id of spotIds) {
+      const spot = FH.spotById[id];
+      if (!spot) continue;
+      let bestRow = null;
+      for (const sp of speciesFor(spot)) {
+        if (species.length && !species.includes(sp.id)) continue;
+        const cells = days.map((d) => {
+          if (!d.inRange) return BLOCKS.map(() => null);
+          const ser = series(spot, sp, data, d.day, 24);
+          return BLOCKS.map(([, h0, h1]) => {
+            const xs = ser.slice(h0, h1).filter((x) => x.score != null && x.t >= now - HOUR && x.t < end && (!x.safety || x.safety.level < 2));
+            return xs.length ? Math.max(...xs.map((x) => x.score)) : null;
+          });
+        });
+        let best = null;
+        cells.forEach((row, di) => row.forEach((v, bi) => { if (v != null && (!best || v > best.score)) best = { d: di, b: bi, score: v }; }));
+        if (best && (!bestRow || best.score > bestRow.best.score)) bestRow = { spot, sp, cells, best };
+      }
+      if (bestRow) rows.push(bestRow);
+    }
+    rows.sort((x, y) => y.best.score - x.best.score);
+    return { days, blocks: BLOCKS.map((b) => b[0]), rows };
+  }
+
   function weekend(data, now, { limit = 3, filter = null } = {}) {
     const a = A();
     const today = a.jstMidnight(new Date(now)).getTime();
@@ -557,5 +595,5 @@
     return out;
   }
 
-  FH.engine = { conditions, score, safety, series, windows, rankSpots, topPicks, weekend, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
+  FH.engine = { conditions, score, safety, series, windows, rankSpots, topPicks, weekend, favCompare, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

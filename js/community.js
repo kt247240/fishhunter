@@ -32,6 +32,7 @@
   /** Share one catch-log entry anonymously. */
   async function post(entry) {
     if (!enabled()) throw new Error('みんなの釣果は準備中です');
+    if (entry.count === 0) throw new Error('ボウズの記録は共有しません');
     const c = entry.cond || {};
     const body = {
       caught_at: new Date(entry.t).toISOString(), spot_id: entry.spotId, species_id: entry.speciesId,

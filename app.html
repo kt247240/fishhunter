@@ -66,6 +66,7 @@
 
       <div class="section-head"><h2>週末の時合</h2><span class="hint" id="wkHint">土日のベスト3</span></div>
       <div class="weekend" id="weekend"><div class="skeleton" style="height:150px"></div><div class="skeleton" style="height:150px"></div></div>
+      <div class="fav-compare" id="favCompare"></div>
 
       <div class="grid-2">
         <article class="card focus">
@@ -103,7 +104,7 @@
       </div>
 
       <article class="card plan-card" id="planCard" hidden>
-        <div class="card-head"><h3>🧭 今日の作戦ボード <small id="planScope"></small></h3><button class="btn sm" id="btnPlanCopy" type="button">作戦をコピー</button></div>
+        <div class="card-head"><h3>🧭 今日の作戦ボード <small id="planScope"></small></h3><span class="pl-actions"><button class="btn sm" id="btnPlanImg" type="button">📸 画像</button><button class="btn sm" id="btnPlanCopy" type="button">コピー</button></span></div>
         <div id="plan"></div>
       </article>
 
@@ -223,6 +224,7 @@
             <datalist id="colorList"><option value="ナチュラル"><option value="オレンジ"><option value="ピンク"><option value="チャート"><option value="ゴールド"><option value="赤テープ"><option value="ケイムラ"><option value="グロー"><option value="クリア"><option value="ブラック"></datalist>
             <label>メモ<textarea name="memo" rows="2" maxlength="400" placeholder="状況・ヒットパターンなど"></textarea></label>
             <label class="file">写真<input type="file" name="photo" accept="image/*"></label>
+            <label class="share-opt blank-opt"><input type="checkbox" name="blank"> <span><b>釣れなかった（ボウズ）として記録</b><br><small>釣れなかった日も記録すると「予測の答え合わせ」が正確になります。</small></span></label>
             <label class="share-opt" id="shareOpt"><input type="checkbox" name="share"> <span><b>みんなの釣果に匿名で共有</b><br><small>共有されるのは 釣り場名・魚種・サイズ・数・釣法・カラー・時間帯・潮 だけ。写真・メモ・正確な位置は共有されません。</small></span></label>
             <button class="btn primary block" type="submit">記録する</button>
           </form>

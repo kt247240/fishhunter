@@ -141,10 +141,16 @@
 
     /* ───── geometry helpers ───── */
     // On narrow screens the decision card overlays the bottom: stage the scene above it.
+    // Measured only when the card resizes: reading offsetHeight every frame forced a full layout
+    // per frame whenever the page changed (profiled at ~0.4 s per spot switch on a mid phone).
+    let insetH = 0;
+    function measureInset() {
+      const card = overlay && overlay.querySelector('[data-scene-inset]');
+      insetH = card ? card.offsetHeight + 18 : 0;
+    }
     function bottomInset() {
       if (!overlay || S.W >= 720) return 0;
-      const card = overlay.querySelector('[data-scene-inset]');
-      return card ? card.offsetHeight + 18 : 0;
+      return insetH;
     }
     const horizon = () => Math.min(S.H * (S.water === 'river' ? 0.42 : 0.5), stageTop() * (S.water === 'river' ? 0.66 : 0.72));
     function skyXY(pos) {
@@ -509,7 +515,12 @@
 
     /* ───── loop ───── */
     let last = performance.now();
+    // Background scene: 30 fps is visually enough and halves paint/commit work on phones.
+    // Direct calls (resize, reduced motion, paused loop) always draw.
+    let lastDraw = -1e9;
     function frame(now) {
+      if (S.raf && now - lastDraw < 31) { S.raf = requestAnimationFrame(frame); return; }
+      lastDraw = now;
       const t = (now - S.t0) / 1000;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (!S.params) { S.raf = reduce ? 0 : requestAnimationFrame(frame); return; }
@@ -531,7 +542,12 @@
     }
 
     // Wiring
-    if (g.ResizeObserver) new ResizeObserver(resize).observe(canvas); else g.addEventListener('resize', resize);
+    if (g.ResizeObserver) {
+      new ResizeObserver(resize).observe(canvas);
+      const card = overlay && overlay.querySelector('[data-scene-inset]');
+      if (card) new ResizeObserver(() => { measureInset(); if (reduce || !S.raf) frame(performance.now()); }).observe(card);
+    } else g.addEventListener('resize', () => { measureInset(); resize(); });
+    measureInset();
     if (g.IntersectionObserver) new IntersectionObserver((es) => setVisible(es[0].isIntersecting && !document.hidden), { threshold: 0.02 }).observe(canvas);
     document.addEventListener('visibilitychange', () => setVisible(!document.hidden));
     canvas.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); S.pointer = ((e.clientX - r.left) / r.width - 0.5) * 2; });
