@@ -62,6 +62,14 @@
       swell: at(m && m.swell, j), sst: at(m && m.sst, j),
       hasWx: i >= 0, hasMarine: j >= 0
     };
+    // Recent sea state: the roughest hour 6–36 h ago (→ "after the storm"), and the 3-day SST trend.
+    if (m && j >= 0) {
+      let prev = null;
+      for (let k = j - 36; k <= j - 6; k++) { const v = at(m.wave, k); if (v != null && (prev == null || v > prev)) prev = v; }
+      c.wavePrev = prev;
+      const s72 = at(m.sst, j - 72);
+      c.dsst = c.sst != null && s72 != null ? c.sst - s72 : null;
+    }
     const p3 = at(w && w.pressure, i - 3);
     c.dp3 = c.pressure != null && p3 != null ? c.pressure - p3 : null;
     c.rain6 = w ? sumRange(w.precip, i - 6, i) : null;
@@ -190,6 +198,16 @@
     return clamp(v);
   }
 
+  /**
+   * 0..1: sea was rough in the last 6–36 h and is now fishable. On the pier logs the catch rises
+   * steadily with yesterday's wave height from ~0.8 m up, so the ramp starts low (summer seas are calm).
+   */
+  function afterStorm(spot, c) {
+    if (spot.water !== 'sea' || c.wavePrev == null || c.wave == null || c.wave > 1.6) return 0;
+    const rough = clamp((c.wavePrev - 0.6) / 1.0);
+    return rough * (c.wave < c.wavePrev - 0.1 ? 1 : 0.5);
+  }
+
   function pressureScore(dp3) {
     if (dp3 == null) return null;
     if (dp3 <= -2.5) return 0.75;
@@ -263,6 +281,13 @@
       s += opts.personal.bonus; extras.push({ key: 'personal', label: 'あなたの実績パターン', impact: opts.personal.bonus, note: opts.personal.note });
     }
 
+    // 時化後: fish move in and feed hard once a blow has passed (back-tested on the managed-pier logs).
+    const after = afterStorm(spot, c);
+    if (after > 0) {
+      const b = after * 10 * seasonMul;
+      s += b; extras.push({ key: 'after', label: '時化後の荒食い', impact: b, note: `前日〜今朝の波 最大${c.wavePrev.toFixed(1)}m → いま ${c.wave.toFixed(1)}m` });
+    }
+
     const safe = safety(spot, c);
     if (safe.level === 2) s = Math.min(s, 12);
     s = Math.round(clamp(s, 0, 99));
@@ -322,6 +347,7 @@
         if (x.score > cur.peak) { cur.peak = x.score; cur.peakT = x.t; }
         cur.labels.add(x.cond.light.label);
         if (x.cond.solunar.label) cur.labels.add(x.cond.solunar.label);
+        if (afterStorm({ water: 'sea' }, x.cond) >= 0.4) cur.labels.add('時化後');
       } else if (cur) { out.push(cur); cur = null; }
     }
     if (cur) out.push(cur);

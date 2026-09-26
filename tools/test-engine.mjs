@@ -159,4 +159,17 @@ test('personal pattern boosts matching conditions after 3 catches', () => {
   assert.equal(round, 0, 'import dedupes by id');
 });
 
+test('after a blow eases, sea spots get the 時化後 bonus; a flat week does not', () => {
+  const now = Date.parse('2026-09-20T06:30:00+09:00');
+  const calm = synth(now);
+  const blown = synth(now, { marine: { wave: (t) => (t < now - 8 * H ? 2.2 : 0.8) } });
+  const sp = FH.speciesById.aji;
+  const a = E.score(naoetsu, sp, E.conditions(naoetsu, now, calm));
+  const b = E.score(naoetsu, sp, E.conditions(naoetsu, now, blown));
+  assert.ok(!a.factors.some((f) => f.key === 'after'));
+  const f = b.factors.find((x) => x.key === 'after');
+  assert.ok(f && f.impact > 3, JSON.stringify(f));
+  assert.ok(b.score > a.score - 2, `${b.score} vs ${a.score}`);
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

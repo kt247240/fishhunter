@@ -67,6 +67,21 @@ export function stripHtml(html) {
 }
 
 const CATCH_VERB = /釣れ|釣果|ヒット|キャッチ|ゲット|GET|上が(り|っ)|釣り上げ|確保|入れ食い|爆釣|連発/;
+// Words that turn a bare mention into a non-catch: targeting, sightings, hopes/forecasts, blanks.
+const NOT_CAUGHT = /狙(い|っ|う|え)|ナブラ|見(た|られ|え|かけ)|姿を|期待|かも|でしょう|そろそろ|例年|予想|予報|釣果(無|な)し|釣れ(ず|な|ませ)|ボウズ|不発|厳し|イマイチ|いまいち|渋|反応(無|な)|待って|様子|放流|お知らせ/;
+const HEDGE = /^.{0,8}?(かも|でしょう|はず|予定|そう(です|な)|たら|れば|ません|ない|ず)|^.{0,3}(イマイチ|いまいち|渋|無し|なし|ゼロ|厳し|不調|低調)/;
+/**
+ * Is a bare mention (no size/count) actually reported as caught? Looks at the first predicate after
+ * the fish name: "アジが釣れ始めました" → yes; "青物が釣れるかもしれません", "アオリイカやサバを狙って",
+ * "ナブラが見られ", "釣果無し" → no.
+ */
+function caughtAfter(rest, before) {
+  const pos = rest.match(CATCH_VERB), neg = rest.match(NOT_CAUGHT);
+  if (!pos) return CATCH_VERB.test(before) && !neg; // "本日の釣果：アジ、サバ
+
+  if (neg && neg.index < pos.index) return false;
+  return !HEDGE.test(rest.slice(pos.index + pos[0].length));
+}
 
 /** Split normalized text into catch-sized segments. */
 function segments(t) {
@@ -108,7 +123,7 @@ export function extractCatches(text) {
       const tail = seg.slice(h.index + h.alias.length, i + 1 < hits.length ? hits[i + 1].index : seg.length);
       const size = tail.match(/(?:(\d{1,3}(?:\.\d)?)\s*~\s*)?(\d{1,3}(?:\.\d)?)\s*cm/i);
       const cnt = tail.match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
-      if (!size && !cnt && !verb) return; // a mere mention ("〜が待っています")
+      if (!size && !cnt && (!verb || !caughtAfter(seg.slice(h.index + h.alias.length), seg.slice(0, h.index)))) return; // a mere mention ("〜が待っています", "〜狙い", "〜かも")
       const info = byAlias[h.alias];
       let min = null, max = null;
       if (size) {
@@ -129,9 +144,14 @@ export function extractCatches(text) {
       });
     });
   }
-  // Merge exact duplicates within a report (same species, size, method).
+  // Merge exact duplicates within a report (same species, size, method), and drop bare mentions of a
+  // species that the same report also lists with a size/count (the intro line repeats the detail lines).
   const seen = new Set();
-  return out.filter((c) => { const k = [c.sp || c.name, c.count, c.min, c.max, c.method].join('|'); if (seen.has(k)) return false; seen.add(k); return true; });
+  const concrete = new Set(out.filter((c) => !c.mention).map((c) => c.sp || c.name));
+  return out.filter((c) => {
+    if (c.mention && concrete.has(c.sp || c.name)) return false;
+    const k = [c.sp || c.name, c.count, c.min, c.max, c.method].join('|'); if (seen.has(k)) return false; seen.add(k); return true;
+  });
 }
 
 /** Time-of-day hints: from title ("午前の釣果") and text ("6時頃", "夕まずめ"). */

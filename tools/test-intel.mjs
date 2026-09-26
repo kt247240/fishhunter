@@ -92,4 +92,23 @@ test('Instagram hashtag media → catches with permalink, old/boat posts dropped
   assert.equal(r[0].url, 'https://www.instagram.com/p/AAA/');
   assert.equal(r[0].catches[0].sp, 'aori'); assert.equal(r[0].catches[0].count, 3);
 });
+test('hopes, targets, sightings and blanks are not catches', () => {
+  const names = (t) => extractCatches(t).map((c) => c.alias).join(',');
+  assert.equal(names('回遊魚が釣れているので、青物が釣れるかもしれませんので期待大ですね'), '');
+  assert.equal(names('県内外からアオリイカやサバを狙って来場された皆さんが釣果を上げていました'), '');
+  assert.equal(names('サワラやイナダのナブラが見られます'), '');
+  assert.equal(names('大濁りでアオリイカは非常に厳しく釣果無し'), '');
+  assert.equal(names('アジは釣れませんでした'), '');
+  assert.equal(names('ここ最近、アオリイカの釣果がイマイチ'), '');
+  assert.equal(names('帰りにアオリイカの様子も見てきました'), '');
+  assert.equal(names('ヤマメ発眼卵放流のお知らせです。釣れたらキャッチ'), '');
+  assert.equal(names('アジやサバもまだ数は少ないものの釣れ始めました'), 'アジ,サバ');
+  assert.equal(names('本日の釣果はアジ、サバ'), 'アジ,サバ');
+  assert.equal(names('昨日はアオリイカが絶好調で、多くの釣果が見られました'), 'アオリイカ');
+});
+test('a bare mention is dropped when the same report lists that fish with a size/count', () => {
+  const cs = extractCatches('アオリイカは昨日に続き好調で釣れています。\nアオリイカ 12~17cm 44杯 47番 エギング');
+  assert.equal(cs.length, 1); assert.equal(cs[0].count, 44);
+});
+
 console.log(`\nFishHunter intel tests: ${passed} passed`);

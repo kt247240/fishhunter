@@ -503,7 +503,7 @@
         const el = overlay.querySelector('[data-fishon]');
         if (el) { el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
       }
-      if (navigator.vibrate) try { navigator.vibrate([25, 40, 60]); } catch (_) { /* unsupported */ }
+      if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) try { navigator.vibrate([25, 40, 60]); } catch (_) { /* unsupported */ }
       if (reduce) frame(performance.now());
     }
 

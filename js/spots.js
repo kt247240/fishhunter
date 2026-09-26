@@ -7,7 +7,8 @@
   'use strict';
   const FH = (g.FH = g.FH || {});
 
-  // months: Jan..Dec seasonal weight (0-1)
+  // months: Jan..Dec seasonal weight (0-1). May–Sep of the pier species are blended 60/40 with the
+  // catch-per-visitor shape of the managed-pier logs (tools/eval/backtest.mjs).
   // temp: [min, optLow, optHigh, max] water temperature °C
   // time: relative activity by light phase
   // wave: [idealLow, idealHigh, hardMax] metres (sea)
@@ -30,7 +31,7 @@
     {
       id: 'aji', name: 'アジ', group: '回遊小型', habitat: ['sea'], color: '#7ee9ff',
       aliases: ['アジ', '豆アジ', '小アジ', '中アジ'],
-      months: [.1, .1, .2, .35, .6, .8, .9, .9, 1, .9, .7, .3],
+      months: [.1, .1, .2, .35, .54, .84, .94, .81, .91, .9, .7, .3],
       temp: [11, 16, 24, 28], time: { mazume: 1, day: .4, night: .85 },
       wave: [0, .8, 1.8], windTol: 7, water: 'clear', moon: .2,
       methods: [
@@ -43,7 +44,7 @@
     {
       id: 'saba', name: 'サバ・イワシ', group: '回遊小型', habitat: ['sea'], color: '#8fb7ff',
       aliases: ['サバ', 'イワシ', 'サッパ', '小サバ'],
-      months: [0, 0, 0, .2, .5, .7, .8, .8, .9, .8, .5, .1],
+      months: [0, 0, 0, .2, .41, .68, .88, .73, .79, .8, .5, .1],
       temp: [13, 17, 25, 28], time: { mazume: 1, day: .55, night: .3 },
       wave: [0, 1, 2], windTol: 8, water: 'clear', moon: .1,
       methods: [
@@ -56,7 +57,7 @@
     {
       id: 'inada', name: 'イナダ・ワラサ（ブリ）', group: '青物', habitat: ['sea'], color: '#5ad1a5',
       aliases: ['イナダ', 'ワラサ', 'ブリ', 'フクラギ', 'ツバス', '青物'],
-      months: [.1, .1, .1, .2, .4, .55, .6, .7, .9, 1, .9, .5],
+      months: [.1, .1, .1, .2, .64, .51, .57, .72, .69, 1, .9, .5],
       temp: [13, 17, 24, 27], time: { mazume: 1, day: .45, night: .1 },
       wave: [.3, 1.3, 2], windTol: 8, water: 'stain', moon: 0,
       methods: [
@@ -94,7 +95,7 @@
     {
       id: 'kurodai', name: 'クロダイ', group: 'タイ', habitat: ['sea'], color: '#c9d1d9',
       aliases: ['クロダイ', 'チヌ', 'カイズ'],
-      months: [.1, .1, .2, .5, .8, .9, .9, .9, .9, .8, .5, .2],
+      months: [.1, .1, .2, .5, .61, .92, .94, .86, .81, .8, .5, .2],
       temp: [12, 17, 26, 29], time: { mazume: .95, day: .7, night: .8 },
       wave: [.2, 1, 1.8], windTol: 8, water: 'stain', moon: .1,
       methods: [
@@ -108,7 +109,7 @@
     {
       id: 'madai', name: 'マダイ', group: 'タイ', habitat: ['sea'], color: '#ff8f6b',
       aliases: ['マダイ', '真鯛', 'チャリコ'],
-      months: [.1, .1, .2, .5, .8, .8, .6, .6, .7, .7, .5, .2],
+      months: [.1, .1, .2, .5, .81, .82, .76, .71, .72, .7, .5, .2],
       temp: [13, 17, 24, 27], time: { mazume: 1, day: .6, night: .3 },
       wave: [.2, 1.2, 1.8], windTol: 7, water: 'clear', moon: 0,
       methods: [
@@ -263,7 +264,7 @@
     {
       id: 'kawahagi', name: 'カワハギ', group: '底物', habitat: ['sea'], color: '#c7b27a',
       aliases: ['カワハギ', 'ウマズラハギ', 'ウマヅラ', 'ハゲ'],
-      months: [0, 0, 0, .1, .3, .5, .7, .8, 1, .9, .6, .2],
+      months: [0, 0, 0, .1, .25, .35, .48, .77, 1, .9, .6, .2],
       temp: [14, 18, 24, 27], time: { mazume: .7, day: 1, night: .05 },
       wave: [0, .7, 1.3], windTol: 7, water: 'clear', moon: 0,
       methods: [

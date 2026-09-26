@@ -42,22 +42,27 @@
 
   function aggregate(reports, since, until = Infinity) {
     const bucket = () => ({ reports: 0, fish: 0, maxSize: null, last: 0, methods: {}, times: {} });
-    const add = (map, r, c) => {
-      const k = c.sp || c.name;
-      const b = map[k] || (map[k] = Object.assign(bucket(), { sp: c.sp, name: c.name }));
-      b.reports++; b.fish += c.mention ? 0 : c.count || 1;
-      if (c.max != null) b.maxSize = Math.max(b.maxSize || 0, c.max);
+    // One report = one vote per species, however many lines it spends on that fish.
+    const add = (map, r, k, cs) => {
+      const b = map[k] || (map[k] = Object.assign(bucket(), { sp: cs[0].sp, name: cs[0].name }));
+      b.reports++;
       b.last = Math.max(b.last, r.date || 0);
-      if (c.method) b.methods[c.method] = (b.methods[c.method] || 0) + 1;
+      for (const c of cs) {
+        b.fish += c.mention ? 0 : c.count || 1;
+        if (c.max != null) b.maxSize = Math.max(b.maxSize || 0, c.max);
+      }
+      new Set(cs.map((c) => c.method).filter(Boolean)).forEach((m) => { b.methods[m] = (b.methods[m] || 0) + 1; });
       (r.time.buckets || []).forEach((t) => { b.times[t] = (b.times[t] || 0) + 1; });
     };
     const spots = {}, areas = {}, all = {};
     for (const r of reports) {
       if (!r.date || r.date < since || r.date >= until || r.type === 'boat') continue;
-      for (const c of r.catches) {
-        r.spots.forEach((sid) => add(spots[sid] || (spots[sid] = {}), r, c));
-        if (r.area) add(areas[r.area] || (areas[r.area] = {}), r, c);
-        add(all, r, c);
+      const groups = new Map();
+      for (const c of r.catches) { const k = c.sp || c.name; groups.has(k) ? groups.get(k).push(c) : groups.set(k, [c]); }
+      for (const [k, cs] of groups) {
+        r.spots.forEach((sid) => add(spots[sid] || (spots[sid] = {}), r, k, cs));
+        if (r.area) add(areas[r.area] || (areas[r.area] = {}), r, k, cs);
+        add(all, r, k, cs);
       }
     }
     const list = (m) => Object.values(m).sort((a, b) => b.fish - a.fish || b.last - a.last).slice(0, 12);
