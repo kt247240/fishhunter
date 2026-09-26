@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v25.4.0 TIDE+SKILL';
+  const VERSION = 'v26.0.0 SCIENCE';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -769,6 +769,15 @@
   }
 
   /* ── HUNT ── */
+  /** 🔬 研究メモ: sourced ecology findings for this fish (+ Japan Sea background for sea spots). */
+  function scienceHtml(fish, sp) {
+    const S = FH.SCIENCE || {};
+    const items = [...(S[fish.id] || []), ...(sp.water === 'sea' && fish.habitat.includes('sea') ? S._sea || [] : [])];
+    if (!items.length) return '';
+    return `<details class="more science" open><summary><span>🔬 研究メモ（論文・公的機関の資料より）</span></summary><ul>${items.map(([t, src, url]) =>
+      `<li>${esc(t)}<a class="small" href="${esc(url)}" target="_blank" rel="noopener">— ${esc(src)}</a></li>`).join('')}</ul></details>`;
+  }
+
   function renderHunt() {
     const sp = spot(), fish = species(), d = state.data;
     const m = FH.astro.jstParts(new Date(state.now)).m;
@@ -778,7 +787,7 @@
       `<div class="${i + 1 === m ? 'now' : ''}" style="--c:${fish.color}"><i style="height:${Math.max(3, w * 100)}%"></i><span>${i + 1}</span></div>`).join('');
     $('#methods').innerHTML = fish.methods.map((mt) =>
       `<div class="method"><h4>${esc(mt.name)}</h4><div class="gear">${esc(mt.gear)}</div><p>${esc(mt.how)}</p></div>`).join('') +
-      (fish.rules ? `<div class="rules">📋 ${esc(fish.rules)}</div>` : '');
+      (fish.rules ? `<div class="rules">📋 ${esc(fish.rules)}</div>` : '') + scienceHtml(fish, sp);
 
     if (!d) { $('#huntScore').innerHTML = ring(null, 104); $('#tactics').innerHTML = '<div class="skeleton" style="height:200px"></div>'; return; }
     const c = E.conditions(sp, state.now, d);

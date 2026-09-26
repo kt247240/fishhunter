@@ -8,7 +8,9 @@
   const FH = (g.FH = g.FH || {});
 
   // months: Jan..Dec seasonal weight (0-1). May–Sep of the pier species are blended 60/40 with the
-  // catch-per-visitor shape of the managed-pier logs (tools/eval/backtest.mjs).
+  // catch-per-visitor shape of the managed-pier logs (tools/eval/backtest.mjs). Other months and the
+  // temperature ranges of madai/kurodai/hirame/mejina/sagoshi/kisu/aori follow the literature review
+  // in ops/research-ecology.md (水産庁・水産機構・新潟県水産海洋研究所 等).
   // temp: [min, optLow, optHigh, max] water temperature °C
   // time: relative activity by light phase
   // wave: [idealLow, idealHigh, hardMax] metres (sea)
@@ -18,8 +20,8 @@
     {
       id: 'aori', name: 'アオリイカ', group: 'イカ', habitat: ['sea'], color: '#ff7ab6',
       aliases: ['アオリイカ', 'アオリ', '新子'],
-      months: [0, 0, 0, 0, .35, .55, .3, .35, .9, 1, .75, .2],
-      temp: [14, 18, 24, 28], time: { mazume: 1, day: .55, night: .7 },
+      months: [0, 0, 0, 0, .35, .55, .3, .35, .9, 1, .65, .2],
+      temp: [14, 17, 26, 29], time: { mazume: 1, day: .55, night: .7 },
       wave: [0, .7, 1.6], windTol: 6, water: 'clear', moon: .3,
       methods: [
         { name: 'エギング', gear: '8ft前後 ML〜M / PE0.6〜0.8号 / リーダー2〜2.5号', how: 'キャスト→着底カウント→2〜3回シャクリ→フォールで抱かせる。抱きはフォール中が大半。ラインの変化に集中。' },
@@ -70,8 +72,8 @@
     {
       id: 'sagoshi', name: 'サゴシ・サワラ', group: '青物', habitat: ['sea'], color: '#9be15d',
       aliases: ['サゴシ', 'サワラ', 'サゴシ・サワラ'],
-      months: [0, 0, 0, .1, .3, .4, .4, .5, .9, 1, .8, .3],
-      temp: [14, 18, 24, 27], time: { mazume: 1, day: .5, night: .1 },
+      months: [0, 0, 0, .3, .5, .45, .4, .5, .9, 1, .8, .3],
+      temp: [12.5, 16, 23, 27], time: { mazume: 1, day: .5, night: .1 },
       wave: [.2, 1.2, 2], windTol: 8, water: 'clear', moon: 0,
       methods: [
         { name: 'ジグ・ブレード', gear: 'シーバス〜ライトショアジギ / メタルジグ・ブレードジグ20〜40g / ワイヤーor太リーダー', how: '表層〜中層の高速巻き。歯が鋭いのでリーダーは太め。' }
@@ -95,8 +97,8 @@
     {
       id: 'kurodai', name: 'クロダイ', group: 'タイ', habitat: ['sea'], color: '#c9d1d9',
       aliases: ['クロダイ', 'チヌ', 'カイズ'],
-      months: [.1, .1, .2, .5, .61, .92, .94, .86, .81, .8, .5, .2],
-      temp: [12, 17, 26, 29], time: { mazume: .95, day: .7, night: .8 },
+      months: [.25, .2, .3, .5, .61, .92, .94, .86, .81, .8, .5, .4],
+      temp: [10, 15, 25, 29], time: { mazume: .95, day: .7, night: .8 },
       wave: [.2, 1, 1.8], windTol: 8, water: 'stain', moon: .1,
       methods: [
         { name: 'ヘチ・前打ち', gear: 'ヘチ竿 / カニ・イガイ', how: '堤防の際を落とし込む。潮位の変化で棚を調整。' },
@@ -109,8 +111,8 @@
     {
       id: 'madai', name: 'マダイ', group: 'タイ', habitat: ['sea'], color: '#ff8f6b',
       aliases: ['マダイ', '真鯛', 'チャリコ'],
-      months: [.1, .1, .2, .5, .81, .82, .76, .71, .72, .7, .5, .2],
-      temp: [13, 17, 24, 27], time: { mazume: 1, day: .6, night: .3 },
+      months: [.1, .1, .2, .5, .81, .82, .76, .71, .72, .8, .7, .2],
+      temp: [11, 15, 23, 27], time: { mazume: 1, day: .6, night: .3 },
       wave: [.2, 1.2, 1.8], windTol: 7, water: 'clear', moon: 0,
       methods: [
         { name: '遠投カゴ・フカセ', gear: '磯竿3〜4号 / 遠投カゴ / オキアミ', how: '潮通しの良い沖向きに遠投。棚は深めから探る。' },
@@ -123,7 +125,7 @@
       id: 'kisu', name: 'シロギス', group: '底物', habitat: ['sea'], color: '#ffe08a',
       aliases: ['シロギス', 'キス', 'ピンギス'],
       months: [0, 0, 0, .2, .6, 1, 1, .9, .8, .5, .2, 0],
-      temp: [15, 19, 26, 29], time: { mazume: .85, day: 1, night: .05 },
+      temp: [12, 17, 27, 30], time: { mazume: .85, day: 1, night: .05 },
       wave: [0, .6, 1.2], windTol: 7, water: 'clear', moon: 0,
       methods: [
         { name: 'ちょい投げ・投げ釣り', gear: '投げ竿 / PE0.8〜1号 / 天秤 / 仕掛け2〜3本針 / 石ゴカイ・ジャリメ', how: '遠投→ゆっくりサビいてアタリの出る距離を見つける。群れの距離を集中攻め。' }
@@ -134,8 +136,8 @@
     {
       id: 'hirame', name: 'ヒラメ', group: '底物', habitat: ['sea'], color: '#d6b36a',
       aliases: ['ヒラメ', 'ソゲ', 'マゴチ', 'フラットフィッシュ'],
-      months: [.3, .2, .3, .5, .6, .5, .3, .3, .5, .8, 1, .8],
-      temp: [10, 14, 22, 26], time: { mazume: 1, day: .55, night: .15 },
+      months: [.3, .2, .3, .5, .8, .7, .3, .3, .5, .8, 1, .8],
+      temp: [8, 12, 20, 25], time: { mazume: 1, day: .55, night: .15 },
       wave: [.4, 1.2, 1.8], windTol: 8, water: 'stain', moon: 0,
       methods: [
         { name: 'サーフルアー', gear: '10〜11ft M / PE1〜1.5号 / メタルジグ30〜40g・ヘビーシンキングミノー・ワーム', how: '離岸流・払い出し・カケアガリをボトム付近で。ジグはリフト&フォール。' },
@@ -161,13 +163,15 @@
       id: 'sakuramasu', name: 'サクラマス', group: 'マス', habitat: ['river', 'sea', 'lake'], color: '#ff6b8b',
       aliases: ['サクラマス', 'サクラ', '本マス'],
       months: [0, .1, .6, 1, .8, .3, 0, 0, 0, 0, 0, 0],
+      // River angling only on approved rivers in the approved window (2026: 三面川・荒川 3/1〜6/15 など).
+      riverSeason: [[3, 1], [6, 15]],
       temp: [4, 7, 12, 16], time: { mazume: 1, day: .6, night: .05 },
       wave: [0, 1, 1.8], windTol: 8, water: 'stain', moon: 0,
       methods: [
         { name: 'ミノー・スプーン', gear: '9ft前後 ML〜M / ナイロン12〜16lb or PE / ミノー・スプーン10〜20g', how: '流れに対してアップクロス〜ダウンクロス。ミノーのドリフトで流心の脇を通す。' }
       ],
       tips: ['雪代・増水後の引き水で遡上が進む', '一日一本の世界。朝一の一投に集中'],
-      rules: '新潟県内のサクラマス釣りは河川ごとに特別な承認・期間・区間の定めあり。必ず漁協に確認。'
+      rules: '河川では県の承認河川（三面川・荒川・胎内川・加治川など）の指定期間・区間のみ遊漁可（2026年の例：三面川・荒川 3/1〜6/15）。河口付近の禁止区域・遊漁承認証を必ず確認。'
     },
     {
       id: 'yamame', name: 'ヤマメ・アマゴ', group: '渓流', habitat: ['river'], color: '#ff9ecd',
@@ -252,7 +256,7 @@
       id: 'mejina', name: 'メジナ', group: '磯・堤防', habitat: ['sea'], color: '#7fb4d9',
       aliases: ['メジナ', 'グレ', '口太'],
       months: [.6, .5, .5, .6, .7, .6, .5, .5, .6, .8, .9, .8],
-      temp: [10, 14, 21, 26], time: { mazume: .9, day: .9, night: .25 },
+      temp: [10, 16, 23, 27], time: { mazume: .9, day: .9, night: .25 },
       wave: [.3, 1.1, 1.8], windTol: 8, water: 'stain', moon: 0,
       methods: [
         { name: 'フカセ', gear: '磯竿1〜1.5号 / 道糸2〜3号 / ハリス1.5〜2号 / 円錐ウキ / オキアミ＋配合餌', how: '撒き餌と付け餌を同調させ、潮下へ流す。食いが渋ければハリスを落とし、ウキ下を細かく調整。' },
@@ -359,7 +363,7 @@
       feature: '佐渡南端。冬の北西風の影響を受けにくい南向き。', caution: '' },
     // ── 新潟・内水面 ─────────────────────────────────
     { id: 'uonogawa', feedAliases: ['魚野川'], name: '魚野川', pref: '新潟', area: '中越', type: '河川', water: 'river', lat: 37.110, lon: 138.935, elev: 200,
-      species: ['ayu', 'yamame', 'iwana', 'niji', 'sakuramasu'],
+      species: ['ayu', 'yamame', 'iwana', 'niji'], // サクラマス: 県の遊漁承認河川ではないため対象外
       feature: '魚沼の清流。アユ・渓流魚・サクラマスの名川。', caution: '雪代期は水量・水温変化が大きい。' },
     { id: 'arakawa', feedAliases: ['荒川'], name: '荒川（村上）', pref: '新潟', area: '下越', type: '河川', water: 'river', lat: 38.120, lon: 139.500, elev: 30,
       species: ['ayu', 'sakuramasu', 'yamame', 'seabass'],

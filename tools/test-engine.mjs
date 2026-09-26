@@ -172,4 +172,22 @@ test('after a blow eases, sea spots get the 時化後 bonus; a flat week does no
   assert.ok(b.score > a.score - 2, `${b.score} vs ${a.score}`);
 });
 
+test('サクラマス on a river scores 0 outside the legal window; not listed on 魚野川', () => {
+  const ara = FH.spotById.arakawa, sp = FH.speciesById.sakuramasu;
+  const out = E.score(ara, sp, E.conditions(ara, Date.parse('2026-06-20T07:00:00+09:00'), synth(Date.parse('2026-06-20T07:00:00+09:00'))));
+  assert.equal(out.score, 0); assert.ok(out.closed);
+  const inn = E.score(ara, sp, E.conditions(ara, Date.parse('2026-04-10T07:00:00+09:00'), synth(Date.parse('2026-04-10T07:00:00+09:00'), { wx: { temp: 9 } })));
+  assert.ok(inn.score > 0 && !inn.closed);
+  assert.ok(!FH.spotById.uonogawa.species.includes('sakuramasu'));
+});
+test('summer thermocline: a too-warm surface no longer zeroes the temperature factor', () => {
+  const t = Date.parse('2026-08-20T06:00:00+09:00');
+  const r = E.score(naoetsu, FH.speciesById.aji, E.conditions(naoetsu, t, synth(t, { marine: { sst: 29 } })));
+  const f = r.factors.find((x) => x.key === 'temp');
+  assert.ok(f.value > 0.3, String(f.value)); assert.match(f.note, /深め/);
+  const w = Date.parse('2026-12-20T06:00:00+09:00');
+  const r2 = E.score(naoetsu, FH.speciesById.aji, E.conditions(naoetsu, w, synth(w, { marine: { sst: 29 } })));
+  assert.ok(r2.factors.find((x) => x.key === 'temp').value < 0.1, 'no thermocline outside Jun–Oct');
+});
+
 console.log(`\nFishHunter engine tests: ${passed} passed`);

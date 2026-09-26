@@ -149,6 +149,14 @@
     return clamp(sp.months[m] * (1 - Math.abs(frac)) + sp.months[n] * Math.abs(frac));
   }
 
+  const THERMO_K = 0.3, THERMO_W = 0.9; // back-test: ρ 0.15→0.16, aori day-ρ 0.15→0.25
+  /** Estimated temperature a few metres below a stratified summer surface (null when mixed). */
+  function thermoDeep(spot, c) {
+    if (spot.water !== 'sea' || c.waterTemp == null || c.month < 6 || c.month > 10) return null;
+    const drop = Math.max(0, Math.min(10, (c.waterTemp - 20) * 0.9)) * THERMO_K;
+    return drop >= 1 ? c.waterTemp - drop : null;
+  }
+
   function trap(x, [lo0, lo1, hi1, hi0]) {
     if (x == null) return null;
     if (x <= lo0 || x >= hi0) return 0.05;
@@ -231,9 +239,15 @@
     f.time = timeScore(sp, c);
     notes.time = c.light.label + ((c.light.phase === 'day' && (c.cloud || 0) >= 75) ? '（曇天で光量低め）' : '');
 
-    const ts = trap(c.waterTemp, sp.temp);
+    let ts = trap(c.waterTemp, sp.temp);
+    // Summer thermocline (新潟県水産海洋研究所 海況情報: Aug–Sep surface 27–30 ℃ vs ~20 ℃ at 50 m).
+    // Fish sit below a too-warm surface rather than leave, so score the cooler layer a pier can reach too.
+    const deep = thermoDeep(spot, c);
+    let thermo = null; // species-specific: never written onto the shared conditions object
+    if (deep != null) { const td = trap(deep, sp.temp); if (td != null && td * THERMO_W > (ts ?? 0)) { ts = td * THERMO_W; thermo = deep; } }
     f.temp = ts == null ? 0.6 : ts;
-    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempObs ? '実測' : c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）`;
+    notes.temp = c.waterTemp == null ? '水温データなし' : `${c.waterTempObs ? '実測' : c.waterTempEst ? '推定' : ''}水温 ${c.waterTemp.toFixed(1)}℃（適水温 ${sp.temp[1]}〜${sp.temp[2]}℃）` +
+      (thermo != null ? `／表層が高水温。少し深いタナは約${thermo.toFixed(0)}℃と推定 → 深め・朝夕が有利` : '');
 
     if (spot.water === 'sea') {
       const ws = waveScore(sp, c.wave);
@@ -264,6 +278,15 @@
 
     f.solunar = c.solunar.value;
     notes.solunar = c.solunar.label ? `ソルナー：${c.solunar.label}` : 'ソルナー時合外';
+
+    // Legal river window (e.g. サクラマス): outside it the fish is not a target at all.
+    if (spot.water === 'river' && sp.riverSeason) {
+      const [[m0, d0], [m1, d1]] = sp.riverSeason, md = c.month * 100 + c.day;
+      if (md < m0 * 100 + d0 || md > m1 * 100 + d1) {
+        return { score: 0, season: 0, closed: true, safety: safety(spot, c), cond: c,
+          factors: [{ key: 'season', label: '遊漁期間', value: 0, weight: null, note: `河川での遊漁期間外（${m0}/${d0}〜${m1}/${d1}）`, impact: -40 }] };
+      }
+    }
 
     const W = WEIGHTS[spot.water];
     let core = 0;

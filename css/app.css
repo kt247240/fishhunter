@@ -704,3 +704,6 @@ table.skill tbody th { text-align: left; color: var(--muted); font-weight: 700; 
 table.skill td b { display: block; font-size: 15px; }
 table.skill td b.warn { color: var(--caution); }
 table.skill td small { color: var(--faint); }
+.science ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; line-height: 1.6; }
+.science li a { display: block; color: var(--muted); text-decoration: none; }
+.science li a:hover { text-decoration: underline; }
