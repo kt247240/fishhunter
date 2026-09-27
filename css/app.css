@@ -27,9 +27,9 @@
   --radius: 24px;
   --radius-sm: 16px;
   --display: "Chakra Petch", "Space Grotesk", -apple-system, system-ui, sans-serif;
-  --jp-display: "Dela Gothic One", "M PLUS 1p", sans-serif;
+  --jp-display: "Zen Kaku Gothic Antique", sans-serif;
   --brandfont: "Orbitron", "Chakra Petch", system-ui, sans-serif;
-  --font: "M PLUS 1p", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Segoe UI", system-ui, sans-serif;
+  --font: "Zen Kaku Gothic Antique", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace;
   --tabbar-h: 64px;
   color-scheme: dark;
@@ -809,8 +809,8 @@ input[type="file"]::file-selector-button { font: inherit; font-weight: 700; colo
 h1, h2, h3, .hero-card h2, .section-head h2 { font-weight: 800; letter-spacing: .02em; }
 .ring .lbl b, .num, .pick-card .rank-no, .medal-no, .ck .ck-mid, .tz-v { font-family: var(--display); font-weight: 700; }
 
-/* v34.7 Japanese display face: Dela Gothic One for names and headings (single weight, so no faux bold) */
+/* v34.8 Japanese face: Zen Kaku Gothic Antique throughout (headings 700) */
 h1, h2, h3, .hero-card h2, #heroTitle, .section-head h2, .pick-card h4, .focus-head h3, .card-head h3, .rd-h, .mini-title, .tr-name, .pl-v > b {
-  font-family: var(--jp-display); font-weight: 400; letter-spacing: .06em;
+  font-family: var(--jp-display); font-weight: 700; letter-spacing: .05em;
 }
 .card-head h3 small, .rd-h small, .section-head .hint { font-family: var(--font); font-weight: 400; letter-spacing: 0; }
