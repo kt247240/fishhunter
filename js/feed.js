@@ -330,10 +330,24 @@
    * Evidence for "where exactly": this spot's own record, else its area's.
    * → { scope, label, reportDays, from, to, sources, rate, p: {days,d30,d14,d7,fish,max,last,methods,tb,zones} }
    */
+  const KIND_LABEL = { surf: 'サーフ', pier: '堤防・港', rock: '磯' };
+  /** Kind of shore from the spot type (same rule as the collector's kindOfSpotType). */
+  function spotKind(spot) {
+    const t = spot.type || '';
+    if (/サーフ/.test(t) && !/突堤|港|磯/.test(t)) return 'surf';
+    if (/港|漁港|突堤|堤防/.test(t)) return 'pier';
+    if (/磯|ゴロタ/.test(t)) return 'rock';
+    return null;
+  }
   function target(spot, sp) {
     if (!hot) return null;
     const S = hot.spots[spot.id];
     if (S && S.sp[sp.id] && S.reportDays >= 3) return pack('spot', spot.name, S, S.sp[sp.id], sp);
+    // No evidence at the spot itself: the same kind of shore in the area first (a surf spot learns from the
+    // area's surf, not from the managed pier's zone table), then the whole area.
+    const kind = spotKind(spot);
+    const K = kind && hot.spots['@' + spot.area + ':' + kind];
+    if (K && K.sp[sp.id] && K.sp[sp.id].days >= 2) return pack('area', `${spot.area}の${KIND_LABEL[kind]}`, K, K.sp[sp.id], sp);
     const A = hot.spots['@' + spot.area];
     if (A && A.sp[sp.id]) return pack('area', spot.area + 'エリア', A, A.sp[sp.id], sp);
     return S && S.reportDays >= 5 ? pack('spot', spot.name, S, null, sp) : null;
@@ -342,10 +356,23 @@
     const colors = (S.colors && S.colors[sp.id]) || null;
     return { scope, label, reportDays: S.reportDays, from: S.from, to: S.to, sources: S.sources, days: hot.days, p, colors, rate: p ? p.days / Math.max(1, S.reportDays) : 0 };
   }
+  /**
+   * Surf vs pier (vs rock) in this spot's area: days this species was reported caught from each kind of shore
+   * (hotspots "@<area>:<kind>" buckets, last 60 days). → [{ kind, label, days, d14, reportDays, max, method }]
+   */
+  function shoreKinds(spot, sp) {
+    if (!hot || spot.water !== 'sea') return [];
+    return Object.keys(KIND_LABEL).map((kind) => {
+      const S = hot.spots['@' + spot.area + ':' + kind];
+      const p = S && S.sp[sp.id];
+      if (!S || S.reportDays < 3) return null;
+      return { kind, label: KIND_LABEL[kind], reportDays: S.reportDays, days: p ? p.days : 0, d14: p ? p.d14 : 0, max: p ? p.max : null, method: p && p.methods && p.methods[0] ? p.methods[0][0] : '' };
+    }).filter(Boolean);
+  }
   /** Spots ranked by days with this species reported caught (last 30 days). */
   function hotRank(sp) {
     if (!hot || !hot.rank) return [];
-    return (hot.rank[sp.id] || []).map((r) => Object.assign({}, r, { spot: FH.spotById[r.spot], spotId: r.spot })).filter((r) => r.spot);
+    return (hot.rank[sp.id] || []).map((r) => Object.assign({}, r, { spot: FH.spotById[r.spot], spotId: r.spot })).filter((r) => r.spot && !(r.spot.access && r.spot.access.level === 'closed'));
   }
 
   function list({ limit = 40 } = {}) {
@@ -366,7 +393,7 @@
     kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
-    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, offshore, recent, insight, list, observed, notices, pierMap, visitors,
+    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, offshore, shoreKinds, spotKind, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],

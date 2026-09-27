@@ -329,7 +329,8 @@
     const box = $('#targetCard');
     const T = FH.feed.target ? FH.feed.target(sp, fish) : null;
     const rk = FH.feed.hotRank ? FH.feed.hotRank(fish) : [];
-    if (!T && !rk.length) { box.hidden = true; return; }
+    const hasKinds = FH.feed.shoreKinds && FH.feed.shoreKinds(sp, fish).some((k) => k.days);
+    if (!T && !rk.length && !hasKinds) { box.hidden = true; return; }
     box.hidden = false;
     const name = shortName(fish.name);
     $('#targetScope').textContent = `${name} ・ 直近${(T && T.days) || 60}日の実績`;
@@ -364,6 +365,15 @@
       html += `<p class="muted small">根拠：${esc(T.label)}の公開釣果 ${T.reportDays}日分（${md(T.from)}〜${md(T.to)}・${T.sources}ソース）。匹数ではなく「釣れた日数」で数えています。</p>`;
     } else if (T) {
       html += `<p class="muted small">${esc(T.label)}では直近${T.days}日（報告${T.reportDays}日分）に${esc(name)}の釣果報告がありません。下の実績のある釣り場も検討を。</p>`;
+    }
+    // Surf vs pier in this area (catch days per kind of shore), this spot's own kind highlighted.
+    const SK = FH.feed.shoreKinds ? FH.feed.shoreKinds(sp, fish) : [];
+    if (SK.some((k) => k.days)) {
+      const myKind = FH.feed.spotKind(sp);
+      const kmax = Math.max(1, ...SK.map((k) => k.days / k.reportDays));
+      html += `<h4 class="rd-h">🏖 サーフと堤防、どっちで釣れてる？ <small>${esc(sp.area)}・直近60日・${esc(name)}の釣果があった日</small></h4>
+        <ol class="tg-zones tg-kinds">${SK.map((k, i) => `<li class="${myKind === k.kind ? 'on' : ''}" style="--i:${i}"><span class="tz-l">${k.label}</span><span class="tz-bar"><i style="width:${Math.max(4, ((k.days / k.reportDays) / kmax) * 100)}%"></i></span><span class="tz-v num">${k.days}日<em>報告${k.reportDays}日中</em></span></li>`).join('')}</ol>
+        <p class="muted small">${SK.filter((k) => k.days).map((k) => `${k.label}：${k.method ? esc(k.method) + 'が多い' : ''}${k.max ? `${k.method ? '・' : ''}最大${k.max}cm` : ''}${k.d14 ? `・直近14日で${k.d14}日` : ''}`).filter((x) => !/：$/.test(x)).join(' ／ ')}</p>`;
     }
     if (rk.length) {
       const top = rk.slice(0, 6);
