@@ -202,6 +202,13 @@ test('急潮【警戒】 adds a caution for the zone\'s spots only', () => {
   } finally { FH.feed.kyucho = keep; }
 });
 
+test('surf クロダイ prefers some swell (サラシ); pier クロダイ and surf キス keep the calm preference', () => {
+  const surf = FH.spotById.kakizaki, pier = FH.spotById.naoetsu, kd = FH.speciesById.kurodai, ks = FH.speciesById.kisu;
+  assert.ok(E.waveScore(kd, 0.8, E.wavePref(surf, kd)) > E.waveScore(kd, 0.1, E.wavePref(surf, kd)));
+  assert.equal(E.wavePref(pier, kd), kd.wave);
+  assert.equal(E.wavePref(surf, ks), ks.wave);
+});
+
 test('ports closed to anglers are never recommended and read as danger', () => {
   const nou = FH.spotById['nou-port'];
   assert.ok(E.isClosed(nou));

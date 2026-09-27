@@ -187,9 +187,23 @@
     return clamp(v);
   }
 
-  function waveScore(sp, wave) {
-    if (wave == null || !sp.wave) return null;
-    const [a, b, mx] = sp.wave;
+  /**
+   * Wave preference by kind of shore. Surf クロダイ feeds in the white water (サラシ) and the murk after a blow:
+   * in the 2025–26 shore archive its catch-day share on surf rose from 50% (<0.4 m) to 84–100% (0.4 m+),
+   * while pier クロダイ stayed flat (63–72%). Other species keep their own (calm-leaning) preference.
+   */
+  const KIND_WAVE = { surf: { kurodai: [0.4, 1.4, 2.2] } };
+  function shoreKind(spot) {
+    const t = spot.type || '';
+    if (/サーフ/.test(t) && !/突堤|港|磯/.test(t)) return 'surf';
+    if (/港|漁港|突堤|堤防/.test(t)) return 'pier';
+    if (/磯|ゴロタ/.test(t)) return 'rock';
+    return null;
+  }
+  const wavePref = (spot, sp) => (KIND_WAVE[shoreKind(spot)] || {})[sp.id] || sp.wave;
+  function waveScore(sp, wave, pref = sp.wave) {
+    if (wave == null || !pref) return null;
+    const [a, b, mx] = pref;
     if (wave < a) return 0.7 + 0.3 * (a > 0 ? wave / a : 1);
     if (wave <= b) return 1;
     if (wave <= mx) return 1 - 0.65 * (wave - b) / (mx - b);
@@ -265,11 +279,12 @@
       (thermo != null ? `／表層が高水温。少し深いタナは約${thermo.toFixed(0)}℃と推定 → 深め・朝夕が有利` : '');
 
     if (spot.water === 'sea') {
-      const ws = waveScore(sp, c.wave);
+      const ws = waveScore(sp, c.wave, wavePref(spot, sp));
       const wi = windScore(sp, c.wind, c.onshore < -0.5 ? 0.05 : 0);
       const cl = clarityScore(sp, c.murk);
       f.env = (ws == null ? 0.6 : ws) * 0.45 + (wi == null ? 0.6 : wi) * 0.3 + cl * 0.25;
-      notes.env = `波 ${c.wave == null ? '—' : c.wave.toFixed(1) + 'm'} / 風 ${c.wind == null ? '—' : c.wind.toFixed(0) + 'm/s ' + compass(c.windDir)}${c.onshore > 0.5 ? '（向かい風）' : c.onshore < -0.5 ? '（追い風）' : ''} / ${c.murk > 0.55 ? '濁り強' : c.murk > 0.25 ? 'ささ濁り' : '澄み'}`;
+      const surfy = wavePref(spot, sp) !== sp.wave && c.wave != null && c.wave >= wavePref(spot, sp)[0];
+      notes.env = `${surfy ? 'サラシが出る波（サーフの' + sp.name.replace(/（.*?）/g, '') + 'に好条件） / ' : ''}波 ${c.wave == null ? '—' : c.wave.toFixed(1) + 'm'} / 風 ${c.wind == null ? '—' : c.wind.toFixed(0) + 'm/s ' + compass(c.windDir)}${c.onshore > 0.5 ? '（向かい風）' : c.onshore < -0.5 ? '（追い風）' : ''} / ${c.murk > 0.55 ? '濁り強' : c.murk > 0.25 ? 'ささ濁り' : '澄み'}`;
       f.tide = c.tide.strength;
       notes.tide = c.tide.name + '（日本海は潮位差が日中15cm程度。釣果の実績でも差はほぼなし）';
     } else if (spot.water === 'river') {
@@ -605,5 +620,5 @@
     return out;
   }
 
-  FH.engine = { isClosed, conditions, score, safety, series, windows, rankSpots, topPicks, weekend, favCompare, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
+  FH.engine = { isClosed, shoreKind, wavePref, waveScore, conditions, score, safety, series, windows, rankSpots, topPicks, weekend, favCompare, dangerScan, dataEnd, tactics, verdict, speciesFor, compass, seasonAt, HOUR };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

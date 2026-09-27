@@ -273,9 +273,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 .map { height: min(62vh, 520px); background: var(--bg-2); position: relative; }
 .map-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
 .map-tools { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
-.fh-marker { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #04111c; border: 2px solid rgba(255, 255, 255, .85); box-shadow: 0 2px 10px rgba(0, 0, 0, .45); background: var(--tone); font-family: var(--mono); }
-.fh-marker.sel { outline: 3px solid var(--accent); outline-offset: 2px; transform: scale(1.15); }
-.fh-marker.off { opacity: .45; }
 .leaflet-container { font-family: var(--font); background: var(--bg-2); }
 .leaflet-popup-content { font-size: 13px; }
 
@@ -393,7 +390,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 14px 16px 24px; }
 }
 
 /* Dark-mode map: invert the GSI pale tiles into a night chart. */
-:root:not([data-theme="light"]) .tiles-pale { filter: invert(1) hue-rotate(190deg) brightness(.82) contrast(.92) saturate(.55); }
+:root:not([data-theme="light"]) .tiles-pale { filter: invert(1) hue-rotate(185deg) brightness(.62) contrast(1.05) saturate(.35); }
 
 /* ═════════════════ v17 MOTION ═════════════════ */
 
@@ -814,3 +811,25 @@ h1, h2, h3, .hero-card h2, #heroTitle, .section-head h2, .pick-card h4, .focus-h
   font-family: var(--jp-display); font-weight: 700; letter-spacing: .05em;
 }
 .card-head h3 small, .rd-h small, .section-head .hint { font-family: var(--font); font-weight: 400; letter-spacing: 0; }
+
+/* v34.9 map: HUD markers (glowing score rings; closed ports ✕; partial = orange dot), dark glass controls */
+.fh-marker { position: relative; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 13px; color: #e8f1f6;
+  background: rgba(3, 6, 11, .82); border: 2px solid var(--tc, var(--accent)); box-shadow: 0 0 12px var(--tc, var(--accent)), inset 0 0 8px rgba(111, 243, 255, .15); transition: transform .2s; }
+.fh-marker.tone-hot { --tc: #ff5d7a; } .fh-marker.tone-good { --tc: #34e0a1; } .fh-marker.tone-ok { --tc: #ffd166; } .fh-marker.tone-meh { --tc: #ff9f43; } .fh-marker.tone-bad, .fh-marker.off { --tc: #5b7385; box-shadow: none; }
+.fh-marker.hot::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--tc); animation: mkPulse 1.8s ease-out infinite; }
+@keyframes mkPulse { from { transform: scale(.8); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+.fh-marker.sel { transform: scale(1.25); z-index: 2; }
+.fh-marker.sel::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(111, 243, 255, .55), transparent 30%); animation: spin 2.4s linear infinite; -webkit-mask: radial-gradient(circle, transparent 0 58%, #000 60%); mask: radial-gradient(circle, transparent 0 58%, #000 60%); }
+.fh-marker.closed { --tc: #ff4d5e; color: #ff4d5e; font-size: 15px; box-shadow: 0 0 10px rgba(255, 77, 94, .6); }
+.fh-marker.partial > span::after { content: ""; position: absolute; right: -2px; top: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--caution); box-shadow: 0 0 6px var(--caution); }
+.leaflet-tooltip.fh-tip { background: rgba(7, 16, 28, .92); color: #e8f1f6; border: 1px solid rgba(111, 243, 255, .25); border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); backdrop-filter: blur(8px); font-family: var(--font); font-size: 12px; padding: 8px 10px; }
+.leaflet-tooltip.fh-tip::before { border-top-color: rgba(7, 16, 28, .92); }
+.fh-tip b { font-family: var(--jp-display); font-size: 13px; } .fh-tip .tt-warn { color: var(--caution); }
+:root:not([data-theme="light"]) .leaflet-bar a, :root:not([data-theme="light"]) .leaflet-control-layers { background: rgba(7, 16, 28, .88); color: #e8f1f6; border-color: rgba(255, 255, 255, .08); }
+:root:not([data-theme="light"]) .leaflet-bar { border: 0; box-shadow: 0 6px 20px rgba(0, 0, 0, .4); border-radius: 14px; overflow: hidden; }
+:root:not([data-theme="light"]) .leaflet-control-attribution { background: rgba(3, 6, 11, .6); color: #8aa2b2; }
+:root:not([data-theme="light"]) .leaflet-control-attribution a { color: #6ff3ff; }
+@media (prefers-reduced-motion: reduce) { .fh-marker.hot::before, .fh-marker.sel::after { animation: none; } }
+.fh-marker { box-shadow: 0 0 6px var(--tc, var(--accent)); }
+.fh-marker.sel, .fh-marker.hot { box-shadow: 0 0 14px var(--tc, var(--accent)); }
+.fh-marker.off { width: 12px; height: 12px; margin: 11px; border-width: 1.5px; font-size: 0; background: rgba(91, 115, 133, .5); }

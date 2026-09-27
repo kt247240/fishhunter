@@ -72,8 +72,11 @@
     items.forEach(({ spot, score, label }) => {
       keep.add(spot.id);
       const t = score == null ? 'bad' : FH.ui.tone(score);
-      const html = `<div class="fh-marker tone-${t}${spot.id === selectedId ? ' sel' : ''}${score == null ? ' off' : ''}">${score == null ? '·' : score}</div>`;
-      const icon = L.divIcon({ html, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
+      const acc = spot.access && spot.access.level; // closed: never a place to go; partial: breakwaters closed
+      const closed = acc === 'closed';
+      const cls = `fh-marker tone-${t}${spot.id === selectedId ? ' sel' : ''}${score == null ? ' off' : ''}${!closed && score >= 80 ? ' hot' : ''}${closed ? ' closed' : ''}${acc === 'partial' ? ' partial' : ''}`;
+      const html = `<div class="${cls}"><span>${closed ? '✕' : score == null ? '·' : score}</span></div>`;
+      const icon = L.divIcon({ html, className: '', iconSize: [34, 34], iconAnchor: [17, 17] });
       let m = markers.get(spot.id);
       if (!m) {
         m = L.marker([spot.lat, spot.lon], { icon, title: spot.name, riseOnHover: true }).addTo(map);
@@ -81,10 +84,13 @@
         markers.set(spot.id, m);
       } else m.setIcon(icon);
       m.setZIndexOffset(spot.id === selectedId ? 1000 : score || 0);
-      m.bindTooltip(`<b>${FH.ui.esc(spot.name)}</b><br>${FH.ui.esc(label || '')}`, { direction: 'top', offset: [0, -14] });
+      m.bindTooltip(`<b>${FH.ui.esc(spot.name)}</b><br>${closed ? '⛔ 立入禁止（' + FH.ui.esc(spot.access.note) + '）' : FH.ui.esc(label || '')}${acc === 'partial' ? '<br><span class="tt-warn">⚠ 防波堤は立入禁止</span>' : ''}`, { direction: 'top', offset: [0, -16], className: 'fh-tip' });
     });
     for (const [id, m] of markers) if (!keep.has(id)) { map.removeLayer(m); markers.delete(id); }
-    if (fit && items.length) map.fitBounds(L.latLngBounds(items.map((i) => [i.spot.lat, i.spot.lon])).pad(0.15));
+    // Fit to the spots that have a score for this species (the coast for sea fish), else to all.
+    const scored = items.filter((i) => i.score != null);
+    const fitTo = scored.length >= 2 ? scored : items;
+    if (fit && fitTo.length) map.fitBounds(L.latLngBounds(fitTo.map((i) => [i.spot.lat, i.spot.lon])).pad(0.12));
   }
 
   function focus(spot, zoom = 11) { if (map && spot) map.flyTo([spot.lat, spot.lon], Math.max(map.getZoom(), zoom), { duration: 0.6 }); }
