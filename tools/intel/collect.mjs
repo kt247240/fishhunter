@@ -272,8 +272,11 @@ const NIIGATA_AREA = /^(?:新潟県\s*)?(?:上越|中越|下越|佐渡)|^新潟/
 async function collectFishers(src) {
   const base = src.url.replace(/[^/]*$/, '');
   const deep = src.deepPages && !BACKFILLED[src.id];
+  // Once: surf fish (ヒラメ・シーバス・サゴシ・キス…) whose list place is too vague to tell surf from pier get their
+  // detail page read (≤80, one time) so the surf evidence is not left short.
+  const deepDetail = src.detailBackfill && !BACKFILLED[src.id + ':detail'];
   const entries = [];
-  for (let p = 1; p <= (deep ? src.deepPages : 1); p++) {
+  for (let p = 1; p <= (deep || deepDetail ? src.deepPages : 1); p++) {
     const r = await get(p === 1 ? src.url : `${src.url}?page=${p}`, 'text/html');
     if (!r.ok) { if (p === 1) throw new Error('HTTP ' + r.status); break; }
     const html = await r.text();
@@ -281,14 +284,21 @@ async function collectFishers(src) {
       .map((m) => ({ idx: +m[1], date: m[2].trim(), name: normalize(m[3]).trim(), place: normalize(m[4]).trim() }));
     if (!got.length) break;
     entries.push(...got);
-    if (deep) await sleep(1500);
+    if (deep || deepDetail) await sleep(1500);
   }
   if (deep) BACKFILLED[src.id] = new Date(NOW).toISOString().slice(0, 10);
   const last = CURSOR[src.id] || 0;
   const fresh = entries.filter((e) => e.idx > last).sort((a, b) => b.idx - a.idx).slice(0, 12);
+  if (deepDetail) {
+    BACKFILLED[src.id + ':detail'] = new Date(NOW).toISOString().slice(0, 10);
+    const SURF_FISH = /ヒラメ|シーバス|スズキ|サゴシ|サワラ|キス|マゴチ|イナダ|ワラサ|ブリ|青物/;
+    const vague = (e) => SURF_FISH.test(e.name) && !HOKURIKU.test(e.place) && !matchSpots(e.place, SPOTS).length && !/サーフ|浜|海岸|港|堤|突堤|テトラ|磯/.test(e.place);
+    const seen = new Set(fresh.map((e) => e.idx));
+    fresh.push(...entries.filter((e) => vague(e) && !seen.has(e.idx)).slice(0, 80));
+  }
   const details = new Map();
   for (const e of fresh) {
-    await sleep(1000);
+    await sleep(1200);
     try {
       const r = await get(`${base}finfo_page.html?choka_idx=${e.idx}`, 'text/html');
       if (!r.ok) continue;

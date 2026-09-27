@@ -321,7 +321,7 @@
     box.hidden = false;
     $('#planScope').textContent = w ? `ピーク ${hm(w.peakT)} 時点の条件で作成` : '';
     $('#plan').innerHTML = `<div class="tl-wrap">${timelineSvg(sp, fish, now, wins)}</div>` + rows.join('');
-    state.planText = text.join('\n') + '\n' + location.origin + location.pathname;
+    state.planText = text.join('\n') + '\n' + location.origin + location.pathname + `?spot=${sp.id}&sp=${fish.id}`;
     state.plan = { rows: plain, score: w ? w.peak : r.score, win: w, cond: c };
   }
   /* 🎯 Evidence-backed target: how often it was caught here, where on the pier, how — counted in days. */

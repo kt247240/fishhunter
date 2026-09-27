@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v34.3.0 FUTURE';
+  const VERSION = 'v34.4.0 LINK';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -24,9 +24,13 @@
   })();
   const clock = () => (demoT == null ? Date.now() : demoT);
 
+  // Deep link: app.html?spot=kakizaki&sp=kurodai opens that spot × species (unknown ids are ignored).
+  const qp = (() => { try { return new URLSearchParams(location.search); } catch (_) { return new Map(); } })();
+  const qSpot = FH.spotById && FH.spotById[qp.get('spot')] ? qp.get('spot') : null;
+  const qSp = FH.speciesById && FH.speciesById[qp.get('sp')] ? qp.get('sp') : null;
   const state = {
-    spotId: store.get(LS.spot, 'naoetsu'),
-    speciesId: store.get(LS.sp, ''),
+    spotId: qSpot || store.get(LS.spot, 'naoetsu'),
+    speciesId: qSp || store.get(LS.sp, ''),
     view: store.get(LS.view, 'now'),
     data: null,
     now: clock(),
@@ -73,6 +77,7 @@
     }
     fillSpeciesSelect($('#huntTarget'), list, state.speciesId);
     store.set(LS.sp, state.speciesId);
+    syncUrl();
   }
 
   function select(spotId, speciesId, opts = {}) {
@@ -85,6 +90,15 @@
     render();
     if (opts.focusMap && FH.map.ready()) FH.map.focus(spot());
     if (opts.scrollTop) g.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  /** Keep the address bar on the current spot × species so it can be bookmarked or shared. */
+  function syncUrl() {
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('spot', state.spotId);
+      if (state.speciesId) u.searchParams.set('sp', state.speciesId); else u.searchParams.delete('sp');
+      history.replaceState(history.state, '', u.pathname + '?' + u.searchParams.toString() + u.hash);
+    } catch (_) { /* file:// or old browser */ }
   }
 
   /* ───────────────────────── views ───────────────────────── */
@@ -1112,7 +1126,7 @@
   }
 
   // Expose before booting: with deferred scripts the document is already 'interactive' here.
-  FH.app = { state, select, show, VERSION, perf };
+  FH.app = { state, select, show, VERSION, perf, syncUrl };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })(typeof globalThis !== 'undefined' ? globalThis : this);
