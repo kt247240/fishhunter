@@ -330,7 +330,8 @@
     const T = FH.feed.target ? FH.feed.target(sp, fish) : null;
     const rk = FH.feed.hotRank ? FH.feed.hotRank(fish) : [];
     const hasKinds = FH.feed.shoreKinds && FH.feed.shoreKinds(sp, fish).some((k) => k.days);
-    if (!T && !rk.length && !hasKinds) { box.hidden = true; return; }
+    const hasHours = FH.feed.hours && FH.feed.hours(sp, fish);
+    if (!T && !rk.length && !hasKinds && !hasHours) { box.hidden = true; return; }
     box.hidden = false;
     const name = shortName(fish.name);
     $('#targetScope').textContent = `${name} ・ 直近${(T && T.days) || 60}日の実績`;
@@ -375,6 +376,9 @@
         <ol class="tg-zones tg-kinds">${SK.map((k, i) => `<li class="${myKind === k.kind ? 'on' : ''}" style="--i:${i}"><span class="tz-l">${k.label}</span><span class="tz-bar"><i style="width:${Math.max(4, ((k.days / k.reportDays) / kmax) * 100)}%"></i></span><span class="tz-v num">${k.days}日<em>報告${k.reportDays}日中</em></span></li>`).join('')}</ol>
         <p class="muted small">${SK.filter((k) => k.days).map((k) => `${k.label}：${k.method ? esc(k.method) + 'が多い' : ''}${k.max ? `${k.method ? '・' : ''}最大${k.max}cm` : ''}${k.d14 ? `・直近14日で${k.d14}日` : ''}`).filter((x) => !/：$/.test(x)).join(' ／ ')}</p>`;
     }
+    // 何時に釣れてる？ — a 24h clock of catch days per hour, the current hour highlighted.
+    const HR = FH.feed.hours ? FH.feed.hours(sp, fish) : null;
+    if (HR) html += clockHtml(HR, name);
     if (rk.length) {
       const top = rk.slice(0, 6);
       html += `<h4 class="rd-h"><i class="ic ic-chart" aria-hidden="true"></i> ${esc(name)}が実際に釣れている釣り場 <small>直近30日・釣果のあった日数</small></h4>
@@ -389,6 +393,25 @@
     FH.motion.stagger($('#target'));
   }
   const EV = { A: ['📊', '実績あり', 'ev'], B: ['🗺', 'エリア情報', 'evb'], C: ['☁', '天気のみ', 'evc'] };
+  function clockHtml(HR, name) {
+    const cx = 110, cy = 110, r0 = 50, r1 = 98, max = Math.max(...HR.hr, 1);
+    const nowH = new Date(Date.now() + 9 * 3600e3).getUTCHours();
+    const bars = HR.hr.map((v, h) => {
+      const a = ((h + 0.5) / 24) * Math.PI * 2 - Math.PI / 2, len = r0 + (r1 - r0) * (v / max);
+      const x0 = cx + Math.cos(a) * r0, y0 = cy + Math.sin(a) * r0, x1 = cx + Math.cos(a) * len, y1 = cy + Math.sin(a) * len;
+      return v ? `<line class="ck-bar${h === nowH ? ' now' : ''}" style="--d:${(h * 0.03).toFixed(2)}s" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke-width="7" stroke-linecap="round"></line>` : '';
+    }).join('');
+    const ticks = [0, 6, 12, 18].map((h) => { const a = (h / 24) * Math.PI * 2 - Math.PI / 2; return `<text x="${(cx + Math.cos(a) * 106).toFixed(1)}" y="${(cy + Math.sin(a) * 106 + 4).toFixed(1)}" text-anchor="middle">${h}</text>`; }).join('');
+    const hand = ((nowH + new Date().getMinutes() / 60) / 24) * 360;
+    const peak = HR.hr.indexOf(max);
+    const top3 = HR.hr.map((v, h) => [v, h]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([, h]) => h).sort((a, b) => a - b);
+    return `<h4 class="rd-h">${FH.icons.ic('⏰')} 何時に釣れてる？ <small>${esc(HR.label)}・${esc(name)}の釣果が出た日の釣行時間（のべ${HR.n}）</small></h4>
+      <div class="ck-wrap"><svg class="ck" viewBox="0 0 220 220" role="img" aria-label="${esc(name)}の釣果が多い時間帯：${top3.map((h) => h + '時').join('・')}台">
+        <circle cx="110" cy="110" r="96" class="ck-ring"></circle><circle cx="110" cy="110" r="50" class="ck-ring"></circle>
+        ${bars}<g class="ck-hand" style="transform: rotate(${hand.toFixed(1)}deg)"><line x1="110" y1="110" x2="110" y2="20"></line><circle cx="110" cy="20" r="3.5"></circle></g>
+        <text class="ck-mid" x="110" y="106" text-anchor="middle">${peak}時台</text><text class="ck-sub" x="110" y="124" text-anchor="middle">いちばん多い</text>${ticks}</svg>
+        <p class="small">多いのは <b>${top3.map((h) => h + '時').join('・')}台</b>。オレンジの針が今（${nowH}時）です。</p></div>`;
+  }
   const evLevel = (sp, fish) => (FH.feed.evidenceLevel ? FH.feed.evidenceLevel(sp, fish) : 'C');
   function evidenceChip(sp, fish) {
     const [ic, label, cls] = EV[evLevel(sp, fish)];

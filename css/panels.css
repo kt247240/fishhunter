@@ -110,3 +110,17 @@ table.fc td[class*="tone-"] { background: color-mix(in srgb, var(--tone) 22%, va
 .rv-hit b { color: var(--good); } .rv-over b, .rv-under b { color: var(--hot); } .rv-mid b { color: var(--muted); }
 
 .tg-kinds li.on { outline: 1px solid rgba(93, 228, 255, .5); border-radius: 10px; }
+.ck-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ck { width: min(240px, 70vw); height: auto; overflow: visible; }
+.ck-ring { fill: none; stroke: var(--line-2); stroke-dasharray: 2 5; }
+.ck-bar { stroke: var(--accent); opacity: .75; transform-origin: 110px 110px; animation: ckGrow .9s cubic-bezier(.2, .8, .2, 1) var(--d) both; }
+.ck-bar.now { stroke: #fff; opacity: 1; filter: drop-shadow(0 0 6px var(--accent)); }
+@keyframes ckGrow { from { transform: scale(.4); opacity: 0; } }
+.ck-hand { transform-origin: 110px 110px; }
+.ck-hand line { stroke: var(--caution); stroke-width: 1.5; }
+.ck-hand circle { fill: var(--caution); animation: ckPulse 1.8s ease-in-out infinite; }
+@keyframes ckPulse { 50% { r: 5.5; opacity: .6; } }
+.ck text { fill: var(--muted); font-size: 12px; font-family: var(--display); }
+.ck .ck-mid { fill: var(--text); font-size: 17px; font-weight: 700; }
+.ck .ck-sub { font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .ck-bar, .ck-hand circle { animation: none; } }

@@ -580,7 +580,8 @@
       "monthUrl": "http://www.itoturi.com/chouka/isohato{Y}-{M}.html",
       "deepMonths": 13,
       "factsOnly": true,
-      "note": "事実（日付・魚・場所・サイズ・釣り方）のみ使用。釣り人名・コメントは保存しない（2026-09-27 オーナー判断）"
+      "note": "事実（日付・魚・場所・サイズ・釣り方）のみ使用。釣り人名・コメントは保存しない（2026-09-27 オーナー判断）",
+      "refill": "2026-09-28"
     },
     {
       "id": "fishers",

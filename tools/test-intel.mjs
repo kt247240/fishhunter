@@ -305,6 +305,16 @@ test('archive: a post stored under its old id is replaced, not duplicated', () =
   assert.deepEqual(arc.records.map((r) => r.id).sort(), ['hNEW', 'hOTHER']);
 });
 
+test('clock times: ranges across midnight, hours kept in the archive and counted per hour', () => {
+  assert.deepEqual(extractTime('', 'クロダイ 35cm ウキ 12:30~ 15:00').hours, [12, 13, 14, 15]);
+  assert.deepEqual(extractTime('', 'ブッコミ 23:00~2:00').hours, [23, 0, 1, 2]);
+  const now = Date.parse('2026-09-26T12:00:00+09:00');
+  const rep = (id, d, hours) => ({ id, date: now - d * 86400e3, src: 'x', type: 'shop', area: '上越', spots: ['naoetsu'], time: { buckets: [], hours }, catches: [{ sp: 'kurodai', name: 'クロダイ', count: 1, max: null, method: null, mention: false }] });
+  const hot = buildHotspots(mergeArchive(null, [rep('a', 1, [5, 6]), rep('b', 2, [6]), rep('c', 3, [])], now), now);
+  const hr = hot.spots.naoetsu.sp.kurodai.hr;
+  assert.equal(hr[6], 2); assert.equal(hr[5], 1); assert.equal(hr.length, 24);
+});
+
 test('HTML entities: decimal and hex (emoji in blog titles)', async () => {
   const { stripHtml } = await import('./intel/extract.mjs');
   assert.equal(stripHtml('【&#x1F991;アオリイカ&#x1F991;】&#12354;&amp;'), '【🦑アオリイカ🦑】あ&');

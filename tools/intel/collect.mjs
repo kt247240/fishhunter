@@ -244,8 +244,11 @@ async function collectHtml(src) {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const items = PARSERS[src.parser](await r.text(), src);
   // Calendar-style sources (deepMonths) are back-filled month by month once, into the archive only.
-  if (src.deepMonths && !BACKFILLED[src.id] && !(ARCHIVE_COVERAGE[src.id] <= NOW - 300 * DAY)) {
-    BACKFILLED[src.id] = new Date(NOW).toISOString().slice(0, 10);
+  // `refill` (a date): read the back pages once more when the parser learned something new (e.g. clock times).
+  const refill = src.refill && (BACKFILLED[src.id] || '') < src.refill;
+  if (src.deepMonths && (refill || (!BACKFILLED[src.id] && !(ARCHIVE_COVERAGE[src.id] <= NOW - 300 * DAY)))) {
+    const today = new Date(NOW).toISOString().slice(0, 10);
+    BACKFILLED[src.id] = src.refill && src.refill > today ? src.refill : today; // a refill happens once
     const now = new Date(NOW + 9 * 3600e3);
     for (let k = 1; k <= src.deepMonths; k++) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));

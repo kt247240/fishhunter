@@ -122,7 +122,11 @@
     if (!hot) return 'C';
     const S = hot.spots[spot.id];
     if (S && S.reportDays >= 10 && S.sp[sp.id] && S.sp[sp.id].days >= 3) return 'A';
-    const A = hot.spots['@' + spot.area];
+    // Area evidence from the same kind of shore when the area reports enough of it (pier catches do not vouch
+    // for a surf spot); otherwise the whole area.
+    const kind = spotKind(spot);
+    const K = kind && hot.spots['@' + spot.area + ':' + kind];
+    const A = K && K.reportDays >= 5 ? K : hot.spots['@' + spot.area];
     if ((S && S.sp[sp.id]) || (A && A.sp[sp.id] && A.sp[sp.id].days >= 3)) return 'B';
     return 'C';
   }
@@ -369,6 +373,18 @@
       return { kind, label: KIND_LABEL[kind], reportDays: S.reportDays, days: p ? p.days : 0, d14: p ? p.d14 : 0, max: p ? p.max : null, method: p && p.methods && p.methods[0] ? p.methods[0][0] : '' };
     }).filter(Boolean);
   }
+  /** Catch days per hour (reports that gave clock times): the spot, else the same kind of shore in the area, else the area. */
+  function hours(spot, sp) {
+    if (!hot) return null;
+    const kind = spotKind(spot);
+    const cands = [[hot.spots[spot.id], spot.name], [kind && hot.spots['@' + spot.area + ':' + kind], `${spot.area}の${KIND_LABEL[kind] || ''}`], [hot.spots['@' + spot.area], spot.area + 'エリア']];
+    for (const [S, label] of cands) {
+      const hr = S && S.sp[sp.id] && S.sp[sp.id].hr;
+      const n = hr ? hr.reduce((a, b) => a + b, 0) : 0;
+      if (n >= 6) return { label, hr, n };
+    }
+    return null;
+  }
   /** Spots ranked by days with this species reported caught (last 30 days). */
   function hotRank(sp) {
     if (!hot || !hot.rank) return [];
@@ -393,7 +409,7 @@
     kyucho: (spotId) => { const k = official && official.kyucho; return k && k.active && k.spots.includes(spotId) ? k : null; },
     forecastSkill, skillLeads: () => (skill ? [...new Set(Object.values(skill.spots).flatMap((v) => Object.keys(v.wind || {}).map(Number)))].sort((a, b) => a - b) : []),
     hasBook: (spotId) => !!(book && book.days.some((e) => e.s === spotId && e.c)),
-    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, offshore, shoreKinds, spotKind, recent, insight, list, observed, notices, pierMap, visitors,
+    load, refreshCommunity: async () => { await mergeCommunity(); }, evidence, radar, offshore, shoreKinds, spotKind, hours, recent, insight, list, observed, notices, pierMap, visitors,
     loaded: () => !!intel,
     generatedAt: () => (intel && intel.generated_at) || null,
     sources: () => (intel && intel.sources) || [],

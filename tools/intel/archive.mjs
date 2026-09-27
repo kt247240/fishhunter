@@ -33,6 +33,7 @@ export function toRecord(r) {
   const c = (r.catches || []).filter((x) => !x.mention).map((x) => [x.sp || x.name, x.count ?? null, x.max ?? null, x.method || null, zoneKeys(x.pos)]);
   const rec = { id: r.id, d: r.date, src: r.src, t: r.type, a: r.area || null, s: r.spots || [], tb: (r.time && r.time.buckets) || [], v: r.visitors ?? null, c };
   if (r.kind) rec.k = r.kind; // surf / pier / rock / mouth
+  if (r.time && r.time.hours && r.time.hours.length) rec.h = r.time.hours; // hours of the day fished/caught
   if (r.colorHits && r.colorHits.length) rec.col = r.colorHits; // [[speciesId|null, colour, ±1]]
   if (r.obs && r.obs.waterTemp != null) rec.o = { wt: r.obs.waterTemp }; // measured water temperature
   return rec;
@@ -85,13 +86,13 @@ export function buildHotspots(archive, now = Date.now(), { days = 60, speciesIds
       }
       const seenHere = new Set();
       for (const [k, cnt, max, method, zones] of x.c) {
-        const P = S.sp[k] || (S.sp[k] = { days: new Set(), d30: new Set(), d14: new Set(), d7: new Set(), fish: 0, max: null, last: 0, methods: {}, tb: {}, zones: {} });
+        const P = S.sp[k] || (S.sp[k] = { days: new Set(), d30: new Set(), d14: new Set(), d7: new Set(), fish: 0, max: null, last: 0, methods: {}, tb: {}, zones: {}, hr: {} });
         P.days.add(day); if (x.d >= d30) P.d30.add(day); if (x.d >= d14) P.d14.add(day); if (x.d >= d7) P.d7.add(day);
         P.fish += cnt || 1;
         if (max != null) P.max = Math.max(P.max || 0, max);
         P.last = Math.max(P.last, x.d);
         if (method) inc(P.methods, method);
-        if (!seenHere.has(k)) { seenHere.add(k); x.tb.forEach((b) => inc(P.tb, b)); }
+        if (!seenHere.has(k)) { seenHere.add(k); x.tb.forEach((b) => inc(P.tb, b)); (x.h || []).forEach((h) => (P.hr[h] || (P.hr[h] = new Set())).add(day)); }
         for (const z of zones) {
           const Z = P.zones[z] || (P.zones[z] = { days: new Set(), d14: new Set(), fish: 0 });
           Z.days.add(day); if (x.d >= d14) Z.d14.add(day); Z.fish += (cnt || 1) / zones.length;
@@ -109,7 +110,9 @@ export function buildHotspots(archive, now = Date.now(), { days = 60, speciesIds
       sp[k] = {
         days: P.days.size, d30: P.d30.size, d14: P.d14.size, d7: P.d7.size, fish: P.fish, max: P.max, last: P.last,
         methods: Object.entries(P.methods).sort((a, b) => b[1] - a[1]).slice(0, 3),
-        tb: P.tb, zones
+        tb: P.tb, zones,
+        // Catch days per hour of the day (0–23), only when some report gave clock times.
+        ...(Object.keys(P.hr).length ? { hr: Array.from({ length: 24 }, (_, h) => (P.hr[h] ? P.hr[h].size : 0)) } : {})
       };
       if (sid[0] !== '@' && (!speciesIds || speciesIds.includes(k))) (rank[k] || (rank[k] = [])).push({ spot: sid, d30: P.d30.size, d7: P.d7.size, days: P.days.size, reportDays: S.days.size, last: P.last, max: P.max });
     }

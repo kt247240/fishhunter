@@ -182,7 +182,14 @@ export function extractTime(title, text) {
 function hoursOf(t) {
   const hours = [...t.matchAll(/(午後|夕方|夜)?\s*([01]?\d|2[0-3])時(?:頃|過ぎ|半|から|~)?/g)]
     .map((m) => (m[1] && +m[2] < 12 ? +m[2] + 12 : +m[2])).filter((h) => h >= 3 && h <= 23);
-  return [...new Set(hours)].slice(0, 6);
+  // Clock ranges from shop tables ("12:30~ 15:00", "23:00~2:00"): every hour the angler was fishing.
+  for (const m of t.matchAll(/([01]?\d|2[0-3])\s*[:：]\s*\.?[0-5]\d\s*~\s*([01]?\d|2[0-3])\s*[:：]\s*\.?[0-5]\d/g)) {
+    let a = +m[1]; const b = +m[2];
+    for (let k = 0; k < 12 && a !== b; k++, a = (a + 1) % 24) hours.push(a);
+    hours.push(b);
+  }
+  if (!hours.length) for (const m of t.matchAll(/(?:^|[^\d])([01]?\d|2[0-3])\s*[:：]\s*[0-5]\d(?!\d)/g)) hours.push(+m[1]);
+  return [...new Set(hours)].slice(0, 12);
 }
 
 /** Colour insights: sentences that talk about which colour worked. */
