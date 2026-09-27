@@ -26,8 +26,9 @@
   --shadow: 0 12px 40px rgba(0, 0, 0, .45);
   --radius: 24px;
   --radius-sm: 16px;
-  --display: "Space Grotesk", -apple-system, system-ui, sans-serif;
-  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Segoe UI", system-ui, sans-serif;
+  --display: "Chakra Petch", "Space Grotesk", -apple-system, system-ui, sans-serif;
+  --brandfont: "Orbitron", "Chakra Petch", system-ui, sans-serif;
+  --font: "M PLUS 1p", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace;
   --tabbar-h: 64px;
   color-scheme: dark;
@@ -801,3 +802,8 @@ h1, h2, h3, h4 { letter-spacing: .01em; }
 .chip .ic { width: 1em; height: 1em; }
 @media (prefers-reduced-motion: reduce) { .tz-bar i, .rd-bar i { animation: none; } }
 input[type="file"]::file-selector-button { font: inherit; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 12px; padding: 8px 14px; margin-right: 10px; cursor: pointer; }
+
+/* v34.6 type: Orbitron (logo, English eyebrows), Chakra Petch (numbers), M PLUS 1p (Japanese) */
+.brand b, .boot-logo, .eyebrow, .hero-card .eyebrow, .scene-chip b { font-family: var(--brandfont); letter-spacing: .22em; }
+h1, h2, h3, .hero-card h2, .section-head h2 { font-weight: 800; letter-spacing: .02em; }
+.ring .lbl b, .num, .pick-card .rank-no, .medal-no, .ck .ck-mid, .tz-v { font-family: var(--display); font-weight: 700; }
