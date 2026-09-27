@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v34.0.0 HUD';
+  const VERSION = 'v34.1.0 SONAR';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -232,6 +232,7 @@
   function renderHero(sp, fish, c, cur, wins, now) {
     const sc = ensureScene();
     if (sc) sc.update({ spot: sp, species: fish, cond: c, score: cur ? cur.score : null, safety: cur && cur.safety, t: now });
+    if (FH.seascape) FH.seascape.render($('#seascape'), { spot: sp, fish, cond: c, layer: c.hasWx ? E.tactics(sp, fish, c).layer : null, ev: evLevel(sp, fish) });
     const short = (n) => n.replace(/（.*?）/g, '');
     $('#heroTitle').textContent = `${short(sp.name)} × ${short(fish.name)}`;
     const w = wins[0];

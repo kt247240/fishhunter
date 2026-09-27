@@ -119,6 +119,7 @@
       S.wind = c.wind || 0;
       S.flow = c.flow || 0;
       S.danger = p.safety && p.safety.level === 2;
+      S.closed = !!(sp.access && sp.access.level === 'closed'); // closed port: no angler on the pier
       S.withFish = sp.water !== 'sea' && p.species && p.species.id === 'bass';
       S.tint = null;
       buildStatic(); setClouds(c.cloud || 0, S.wind);
@@ -406,7 +407,7 @@
     }
 
     function drawAngler(t) {
-      if (S.danger) return;
+      if (S.danger || S.closed) return;
       const img = sprite(S.withFish ? 'angler-fish' : 'angler');
       if (!img.complete || !img.naturalWidth) return;
       const R = anglerRect();
