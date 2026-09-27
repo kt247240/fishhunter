@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v33.4.0 KINDS';
+  const VERSION = 'v34.0.0 HUD';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -998,11 +998,12 @@
     $('#btnForce').addEventListener('click', () => loadData(true));
     $('#btnClearCache').addEventListener('click', () => { try { g.localStorage.removeItem(FH.weather.CACHE_KEY); } catch (_) { /* noop */ } FH.ui.toast('気象キャッシュを削除しました'); });
     $('#btnTheme').addEventListener('click', () => {
-      const light = document.documentElement.getAttribute('data-theme') !== 'light';
-      if (light) document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.removeAttribute('data-theme');
-      store.set(LS.theme, light ? 'light' : '');
-      $('meta[name="theme-color"]').setAttribute('content', light ? '#eef4f8' : '#04111c');
-      FH.ui.toast(light ? '日中モード（高コントラスト）' : 'ナイトモード');
+      // 自動（日の出〜日の入りは明るく）→ 明るい固定 → 暗い固定 → 自動
+      const cur = store.get(LS.theme, '');
+      const next = cur === '' ? 'light' : cur === 'light' ? 'dark' : '';
+      store.set(LS.theme, next);
+      applyTheme();
+      FH.ui.toast(next === 'light' ? '明るい表示（固定）' : next === 'dark' ? '暗い表示（固定）' : '自動（日中は明るく・夜は暗く）');
       if (chart) chart.redraw();
     });
     $('#btnShare').addEventListener('click', share);
@@ -1059,8 +1060,25 @@
     if (state.data) pick(); else state.afterData = pick;
   }
 
+  /** Theme: fixed light/dark, or auto = light between sunrise and sunset at the selected spot. */
+  function applyTheme() {
+    const pref = store.get(LS.theme, '');
+    let light = pref === 'light';
+    if (!pref) {
+      const sp = FH.spotById[state.spotId];
+      const st = sp && FH.astro && FH.astro.sunTimes ? FH.astro.sunTimes(new Date(), sp.lat, sp.lon) : null;
+      const now = Date.now();
+      light = st && st.rise && st.set ? now >= +st.rise && now < +st.set : (new Date().getUTCHours() + 9) % 24 >= 6 && (new Date().getUTCHours() + 9) % 24 < 18;
+    }
+    const was = document.documentElement.getAttribute('data-theme') === 'light';
+    if (light) document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.removeAttribute('data-theme');
+    $('meta[name="theme-color"]').setAttribute('content', light ? '#eef4f8' : '#03060b');
+    if (was !== light && chart) chart.redraw();
+  }
+
   function init() {
-    if (store.get(LS.theme, '') === 'light') $('meta[name="theme-color"]').setAttribute('content', '#eef4f8');
+    applyTheme();
+    setInterval(applyTheme, 5 * 60e3);
     fillSpotSelect($('#spotPick'), state.spotId);
     syncSpecies();
     bind();
