@@ -61,7 +61,7 @@
     if (k) {
       const tone = (w) => (/高め/.test(w || '') ? 'hi' : /低め/.test(w || '') ? 'lo' : '');
       const cell = (label, v, w) => `<div class="gv-t ${tone(w)}"><span>${label}</span><b class="num">${v.toFixed(1)}<small>℃</small></b><em>${esc(w || '')}</em></div>`;
-      html += `<section class="lab-sec"><h4 class="rd-h">🌡 沖の水温（${k.month}月号・${k.obs ? `${k.obs.from[0]}/${k.obs.from[1]}〜${k.obs.to[0]}/${k.obs.to[1]}観測` : ''}）</h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-thermo" aria-hidden="true"></i> 沖の水温（${k.month}月号・${k.obs ? `${k.obs.from[0]}/${k.obs.from[1]}〜${k.obs.to[0]}/${k.obs.to[1]}観測` : ''}）</h4>
         <div class="gv-temps">${cell('表層', k.t0, k.anomaly.t0)}${cell('水深50m', k.t50, k.anomaly.t50)}${cell('水深100m', k.t100, k.anomaly.t100)}</div>
         ${k.t0 - k.t50 >= 5 ? `<p class="small">表層と水深50mの差が${(k.t0 - k.t50).toFixed(1)}℃。魚は表層を避けて少し深いタナにいることが多い時期です（スコアの水温にも反映）。</p>` : ''}</section>`;
     }
@@ -69,7 +69,7 @@
     if (L && L.species) {
       const rows = Object.entries(L.species).filter(([, v]) => v.avg5 > 0.5 || v.t > 0.5).sort((a, b) => b[1].t - a[1].t);
       const mine = L.species[fish.id];
-      html += `<section class="lab-sec"><h4 class="rd-h">📦 定置網の水揚げ（${L.year}年${L.month}月・県全体） <small>沖にどれだけ魚が来ているかの目安</small></h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-box" aria-hidden="true"></i> 定置網の水揚げ（${L.year}年${L.month}月・県全体） <small>沖にどれだけ魚が来ているかの目安</small></h4>
         ${mine ? `<p class="tg-call">${esc(name)}：<b>${mine.t}トン</b>（5年平均の<b>${pct(mine.t, mine.avg5) ?? '—'}%</b>・前年の${pct(mine.t, mine.prev) ?? '—'}%）${mine.areas && mine.areas[sp.area] != null ? ` ／ ${esc(sp.area)} ${mine.areas[sp.area]}トン` : ''}</p>` : ''}
         <ol class="tg-zones">${rows.map(([id, v], i) => { const p = pct(v.t, v.avg5); return `<li style="--i:${i}" class="${id === fish.id ? 'on' : ''}"><span class="tz-l">${esc(shortName((FH.speciesById[id] || { name: id }).name))}</span><span class="tz-bar"><i style="width:${Math.min(100, Math.max(4, (p || 0) / 2))}%"></i></span><span class="tz-v num">${p == null ? '—' : p + '%'}<em class="st-n">${v.t}t</em></span></li>`; }).join('')}</ol>
         <p class="muted small">5年平均を100%とした比率（バーは200%で満杯）。月ごとの集計で、翌月に公表されます。</p></section>`;
@@ -80,7 +80,7 @@
       const nowV = (R.series.filter(([d]) => d <= today).slice(-1)[0] || [])[1];
       const mx = Math.max(...R.series.map(([, v]) => v), R.median * 2);
       const ratio = nowV != null && R.median ? nowV / R.median : null;
-      html += `<section class="lab-sec"><h4 class="rd-h">🏞 ${esc(R.name)}の流量 <small>河口付近の濁り・塩分の目安（予測を含む）</small></h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-river" aria-hidden="true"></i> ${esc(R.name)}の流量 <small>河口付近の濁り・塩分の目安（予測を含む）</small></h4>
         <div class="gv-river">${R.series.map(([d, v]) => `<span class="${d > today ? 'fc' : d === today ? 'now' : ''}" title="${d}: ${v} m³/s"><i style="height:${Math.max(3, (v / mx) * 100)}%"></i></span>`).join('')}<b class="gv-med" style="bottom:${(R.median / mx) * 100}%"></b></div>
         <p class="small">${nowV != null ? `いま約<b>${nowV} m³/s</b>（平常${R.median} m³/sの${ratio.toFixed(1)}倍）` : ''}${ratio >= 2 ? ' → <b>増水中</b>。河口付近は濁りと塩分低下の可能性（シーバス・クロダイは濁りの境目が狙い目、アオリイカ・キスには不利）' : ratio != null && ratio < 0.7 ? ' → 渇水気味' : ' → ほぼ平常'}。</p>
         <p class="muted small">FishHunterの釣果日誌（直江津・東港）では、増水と釣果に一貫した関係は見られていません。スコアには入れず情報として表示しています。</p></section>`;
@@ -88,8 +88,8 @@
     const KY = O.kyucho;
     if (KY) {
       const on = KY.active && KY.spots.includes(sp.id);
-      html += `<section class="lab-sec"><h4 class="rd-h">🌀 急潮情報（沿岸の急な強い流れ）</h4>${on
-        ? `<p class="tg-call kyucho-on">⚠️ ${KY.items.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join('<br>')}<br><span class="small">堤防先端・磯では強い流れに注意。詳細と対象海域は県の発表を確認してください。</span></p>`
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-swirl" aria-hidden="true"></i> 急潮情報（沿岸の急な強い流れ）</h4>${on
+        ? `<p class="tg-call kyucho-on"><i class="ic ic-warn" aria-hidden="true"></i> ${KY.items.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join('<br>')}<br><span class="small">堤防先端・磯では強い流れに注意。詳細と対象海域は県の発表を確認してください。</span></p>`
         : `<p class="small">現在、この海域への急潮情報は発表されていません（<a href="${esc(KY.page)}" target="_blank" rel="noopener">新潟県の発表ページ</a>を2時間ごとに確認）。</p>`}</section>`;
     }
     if (!html) { box.hidden = true; return; }
@@ -121,7 +121,7 @@
     const near = I.analogs(book, sp.id, cond, day, 6);
     const lf = I.lift(book, sp.id, near);
     const mine = lf.find((x) => x.sp === fish.id);
-    html += `<section class="lab-sec"><h4 class="rd-h">🔁 ${tomorrow ? '明日' : '今日'}に近い日（時期・海況が似た過去の日）</h4>
+    html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-repeat" aria-hidden="true"></i> ${tomorrow ? '明日' : '今日'}に近い日（時期・海況が似た過去の日）</h4>
       <p class="lab-now">${tomorrow ? '明日' : '今日'}の日中：<b>${esc(condTxt(cond))}</b>${cond.tide ? ` ・ ${esc(cond.tide)}` : ''}</p>`;
     if (near.length) {
       html += `<p class="tg-call">${mine
@@ -151,7 +151,7 @@
       const hitsBefore = ss.slice(0, -3).reduce((a, w) => a + w.hit, 0), daysBefore = ss.slice(0, -3).reduce((a, w) => a + w.days, 0);
       const rNow = daysRecent ? hitsRecent / daysRecent : 0, rBefore = daysBefore ? hitsBefore / daysBefore : 0;
       const flow = rNow >= rBefore + 0.2 ? '上り調子' : rNow <= rBefore - 0.2 ? '下り坂' : '安定';
-      html += `<section class="lab-sec"><h4 class="rd-h">📈 ${esc(name(fish.id))}のシーズンの流れ <small>週ごとの「釣れた日の割合」と最大サイズの中央値</small></h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-trend" aria-hidden="true"></i> ${esc(name(fish.id))}のシーズンの流れ <small>週ごとの「釣れた日の割合」と最大サイズの中央値</small></h4>
         <div class="lab-weeks">${ss.map((w, i) => {
           const r = w.days ? w.hit / w.days : 0;
           const d = new Date(w.w);
@@ -167,7 +167,7 @@
         const cur = I.stormBucket(cond.ss);
         const mx = Math.max(2, ...sc.map((b) => b.mult || 0));
         const best = sc.filter((b) => b.n >= 3 && b.key !== '7+').sort((a, b) => b.mult - a.mult)[0];
-        html += `<section class="lab-sec"><h4 class="rd-h">🌊 時化後カーブ（${esc(name(fish.id))}） <small>最大波1.5m以上の時化から何日目か／季節の影響を除いた「いつもの何倍」</small></h4>
+        html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-wave" aria-hidden="true"></i> 時化後カーブ（${esc(name(fish.id))}） <small>最大波1.5m以上の時化から何日目か／季節の影響を除いた「いつもの何倍」</small></h4>
           <ol class="storm">${sc.map((b, i) => `<li class="${b.key === cur ? 'now' : ''}" style="--i:${i}"><span class="st-l">${esc(b.label)}${b.key === cur ? '<em>今日</em>' : ''}</span>
             <span class="st-bar"><i class="${(b.mult || 0) >= 1 ? 'up' : 'dn'}" style="width:${b.mult == null ? 0 : Math.max(4, (b.mult / mx) * 100)}%"></i><span class="st-one" style="left:${(1 / mx) * 100}%"></span></span>
             <span class="tz-v num">${b.mult == null ? '—' : '×' + b.mult.toFixed(1)}<em class="st-n">${b.n}日</em></span></li>`).join('')}</ol>
@@ -192,11 +192,11 @@
           }
         }
         const wk = mg.spots[0].weeks.map((w) => { const d = new Date(w.w); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; });
-        html += `<section class="lab-sec"><h4 class="rd-h">🧭 回遊レーダー（${esc(name(fish.id))}） <small>釣り場ごとの週別「釣れた日の割合」</small></h4>
+        html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-compass" aria-hidden="true"></i> 回遊レーダー（${esc(name(fish.id))}） <small>釣り場ごとの週別「釣れた日の割合」</small></h4>
           <div class="mig">${mg.spots.map((x) => `<div class="mig-row${x.id === sp.id ? ' on' : ''}"><span class="mig-l">${esc(sname(x.id))}</span>${x.weeks.map((w) => `<span class="mig-c" style="--a:${w.days ? (w.hit / w.days).toFixed(2) : 0}" title="${w.hit}/${w.days}日">${w.days ? Math.round((w.hit / w.days) * 100) : '·'}</span>`).join('')}</div>`).join('')}
           <div class="mig-row mig-axis"><span class="mig-l"></span>${wk.map((t) => `<span>${t}</span>`).join('')}</div></div>
           ${arrTxt ? `<p class="small">今季の釣れ始め（2週間以上の空白のあと最初の釣果）：${arrTxt}</p>` : ''}
-          ${mg.lead ? `<p class="small">📡 ${esc(sname(mg.lead.from))}の釣れ具合が約<b>${mg.lead.days}日</b>遅れて${esc(sname(mg.lead.to))}に表れる傾向（相関${mg.lead.r.toFixed(2)}・${mg.lead.n}日分・まだ1シーズンの傾向）。${esc(sname(mg.lead.from))}の今週の動きが先行サインになります。</p>` : ''}</section>`;
+          ${mg.lead ? `<p class="small"><i class="ic ic-radar" aria-hidden="true"></i> ${esc(sname(mg.lead.from))}の釣れ具合が約<b>${mg.lead.days}日</b>遅れて${esc(sname(mg.lead.to))}に表れる傾向（相関${mg.lead.r.toFixed(2)}・${mg.lead.n}日分・まだ1シーズンの傾向）。${esc(sname(mg.lead.from))}の今週の動きが先行サインになります。</p>` : ''}</section>`;
       }
     }
 
@@ -205,7 +205,7 @@
     const rows = leads.map((L) => FH.feed.forecastSkill(L, sp.id)).filter((k) => k && (k.wind || k.wave));
     if (rows.length) {
       const fmt = (x, u) => (x ? `<b class="num ${Math.abs(x.bias) >= (u === 'm' ? 0.15 : 0.7) ? 'warn' : ''}">${x.bias > 0 ? '+' : ''}${x.bias.toFixed(u === 'm' ? 2 : 1)}</b><small>±${x.mae.toFixed(u === 'm' ? 2 : 1)}${u}</small>` : '—');
-      html += `<section class="lab-sec"><h4 class="rd-h">📡 予報のブレ <small>何日前の予報が、直前の予報からどれだけズレたか（日中の最大値・過去${rows[0].days}日）</small></h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-radar" aria-hidden="true"></i> 予報のブレ <small>何日前の予報が、直前の予報からどれだけズレたか（日中の最大値・過去${rows[0].days}日）</small></h4>
         <table class="skill"><thead><tr><th></th>${rows.map((k) => `<th>${k.lead}日前</th>`).join('')}</tr></thead><tbody>
         <tr><th>風 m/s</th>${rows.map((k) => `<td>${fmt(k.wind, 'm/s')}</td>`).join('')}</tr>
         ${sp.water === 'sea' ? `<tr><th>波 m</th>${rows.map((k) => `<td>${fmt(k.wave, 'm')}</td>`).join('')}</tr>` : ''}</tbody></table>
@@ -216,7 +216,7 @@
     const cr = I.crowd(book, sp.id, 6, state.now);
     if (cr.n >= 5) {
       const cell = (label, v) => `<div class="lab-crowd-c"><span>${label}</span><b class="num">${v == null ? '—' : v}</b><small>${v == null ? '' : '名'}</small></div>`;
-      html += `<section class="lab-sec"><h4 class="rd-h">👥 混雑の目安 <small>過去6週の入場者数（中央値）</small></h4>
+      html += `<section class="lab-sec"><h4 class="rd-h"><i class="ic ic-people" aria-hidden="true"></i> 混雑の目安 <small>過去6週の入場者数（中央値）</small></h4>
         <div class="lab-crowd">${cell('平日', cr.weekday)}${cell('土曜', cr.sat)}${cell('日曜', cr.sun)}</div></section>`;
     }
     html += `<p class="muted small">FishHunterが公開釣果と過去の気象を毎日記録した「釣果日誌」から計算しています。過去データでの検証では、似た日の釣果から当日の釣果の有無をある程度見分けられました（AUC 約0.72）。ただし今は1シーズン分のため、効いているのは主に時期の近さです。</p>`;
@@ -247,7 +247,7 @@
     let html = `<div class="chance-row">${evidenceChip(sp, fish)}<span class="small">${{ A: 'この釣り場の釣果記録にもとづく', B: 'エリアの釣果報告あり・この釣り場の記録はなし', C: '天気と季節だけの目安（この釣り場の釣果記録なし）' }[lv]}</span></div>`;
     if (ch) {
       html += `<div class="chance-gauge">${gaugeSvg(ch.p, fish.color || '#5de4ff')}<div>`;
-      html += `<p class="chance-main">📈 ${lv === 'A' ? '' : '<span class="chip evb">参考</span> '}${w ? '次の時合' : '今'}と似た条件の日、管理釣り場で<b>${esc(name)}</b>の釣果報告があったのは <b class="num">${pctTxt(ch.p)}</b><span class="muted small">（${ch.local ? "この釣り場の平均" : "全体平均"} ${pctTxt(ch.base)}）</span></p>
+      html += `<p class="chance-main"><i class="ic ic-trend" aria-hidden="true"></i> ${lv === 'A' ? '' : '<span class="chip evb">参考</span> '}${w ? '次の時合' : '今'}と似た条件の日、管理釣り場で<b>${esc(name)}</b>の釣果報告があったのは <b class="num">${pctTxt(ch.p)}</b><span class="muted small">（${ch.local ? "この釣り場の平均" : "全体平均"} ${pctTxt(ch.base)}）</span></p>
         <p class="muted small">管理釣り場・ボート店の毎日の釣果（${ch.n}日分）から算出。多くの人が釣る場所での「誰かが釣った日」の割合で、一人あたりの確率ではありません。</p></div></div>`;
     } else if (sp.water === 'sea' && sc && sc.base < 0.05) {
       html += `<p class="muted small">${esc(name)}は管理釣り場ではほとんど釣れない（${pctTxt(sc.base)}の日）ため、実績からの目安は出せません。</p>`;
@@ -269,7 +269,7 @@
     const rows = [], plain = [];
     const text = [`【${sp.name} × ${name}】FishHunter 作戦`];
     const strip = (x) => String(x || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-    const add = (ic, k, v, sub) => { plain.push({ ic, k, v: strip(v), sub: strip(sub) }); rows.push(`<div class="pl-row"><span class="pl-ic">${ic}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
+    const add = (ic, k, v, sub) => { plain.push({ ic, k, v: strip(v), sub: strip(sub) }); rows.push(`<div class="pl-row"><span class="pl-ic">${FH.icons.ic(ic)}</span><div><div class="pl-k">${k}</div><div class="pl-v">${v}</div>${sub ? `<div class="pl-s">${sub}</div>` : ''}</div></div>`); text.push(`${k}：${v.replace(/<[^>]+>/g, '')}${sub ? '（' + sub.replace(/<[^>]+>/g, '') + '）' : ''}`); };
 
     // いつ
     const pch = evLevel(sp, fish) === 'A' ? chanceAt(sp, fish, t) : null;
@@ -351,16 +351,16 @@
           <div class="tg-trend"><span>直近14日 <b class="num">${p.d14}</b>日</span><span>直近7日 <b class="num">${p.d7}</b>日</span>${p.max ? `<span>最大 <b class="num">${p.max}</b>cm</span>` : ''}</div>
         </div>`;
       if (best) {
-        html += `<p class="tg-call">👉 狙うなら <b>${esc(best.label)}</b>${method ? ` × <b>${esc(method)}</b>` : ''}${when ? ` ・ ${when}` : ''}
+        html += `<p class="tg-call"><i class="ic ic-arrow" aria-hidden="true"></i> 狙うなら <b>${esc(best.label)}</b>${method ? ` × <b>${esc(method)}</b>` : ''}${when ? ` ・ ${when}` : ''}
           <span class="muted small">（${best.days}日で実績${best.d14 ? `・直近14日でも${best.d14}日` : ''}）</span></p>
           <ol class="tg-zones">${z.slice(0, 5).map((x, i) => `<li style="--i:${i}"><span class="tz-l">${esc(x.label)}</span><span class="tz-bar"><i style="width:${Math.max(6, (x.days / zmax) * 100)}%"></i></span><span class="tz-v num">${x.days}日${x.d14 ? `<em>直近${x.d14}</em>` : ''}</span></li>`).join('')}</ol>`;
       } else if (method) {
-        html += `<p class="tg-call">👉 実績の多い釣り方は <b>${esc(method)}</b>${when ? ` ・ ${when}` : ''}</p>`;
+        html += `<p class="tg-call"><i class="ic ic-arrow" aria-hidden="true"></i> 実績の多い釣り方は <b>${esc(method)}</b>${when ? ` ・ ${when}` : ''}</p>`;
       }
       if (p.methods && p.methods.length > 1) html += `<div class="chips">${p.methods.map(([m, n]) => `<span class="chip">${esc(m)} ${n}回</span>`).join('')}</div>`;
       if (T.colors && T.colors.length) {
         const n = T.colors.reduce((a, c) => a + c[1] + c[2], 0);
-        html += `<div class="tg-colors"><span class="rd-h">🎨 カラーの実績</span>${T.colors.slice(0, 6).map(([c, pos, neg]) => `<span class="chip ${pos > neg ? 'ev' : pos < neg ? 'neg' : ''}">${esc(c)} ${pos ? '👍' + pos : ''}${neg ? ' 👎' + neg : ''}</span>`).join('')}${n < 3 ? '<span class="muted small">（まだ件数が少ない参考値）</span>' : ''}</div>`;
+        html += `<div class="tg-colors"><span class="rd-h"><i class="ic ic-palette" aria-hidden="true"></i> カラーの実績</span>${T.colors.slice(0, 6).map(([c, pos, neg]) => `<span class="chip ${pos > neg ? 'ev' : pos < neg ? 'neg' : ''}">${esc(c)} ${pos ? '<i class="ic ic-up" aria-hidden="true"></i>' + pos : ''}${neg ? ' <i class="ic ic-down" aria-hidden="true"></i>' + neg : ''}</span>`).join('')}${n < 3 ? '<span class="muted small">（まだ件数が少ない参考値）</span>' : ''}</div>`;
       }
       html += `<p class="muted small">根拠：${esc(T.label)}の公開釣果 ${T.reportDays}日分（${md(T.from)}〜${md(T.to)}・${T.sources}ソース）。匹数ではなく「釣れた日数」で数えています。</p>`;
     } else if (T) {
@@ -371,13 +371,13 @@
     if (SK.some((k) => k.days)) {
       const myKind = FH.feed.spotKind(sp);
       const kmax = Math.max(1, ...SK.map((k) => k.days / k.reportDays));
-      html += `<h4 class="rd-h">🏖 サーフと堤防、どっちで釣れてる？ <small>${esc(sp.area)}・直近60日・${esc(name)}の釣果があった日</small></h4>
+      html += `<h4 class="rd-h"><i class="ic ic-beach" aria-hidden="true"></i> サーフと堤防、どっちで釣れてる？ <small>${esc(sp.area)}・直近60日・${esc(name)}の釣果があった日</small></h4>
         <ol class="tg-zones tg-kinds">${SK.map((k, i) => `<li class="${myKind === k.kind ? 'on' : ''}" style="--i:${i}"><span class="tz-l">${k.label}</span><span class="tz-bar"><i style="width:${Math.max(4, ((k.days / k.reportDays) / kmax) * 100)}%"></i></span><span class="tz-v num">${k.days}日<em>報告${k.reportDays}日中</em></span></li>`).join('')}</ol>
         <p class="muted small">${SK.filter((k) => k.days).map((k) => `${k.label}：${k.method ? esc(k.method) + 'が多い' : ''}${k.max ? `${k.method ? '・' : ''}最大${k.max}cm` : ''}${k.d14 ? `・直近14日で${k.d14}日` : ''}`).filter((x) => !/：$/.test(x)).join(' ／ ')}</p>`;
     }
     if (rk.length) {
       const top = rk.slice(0, 6);
-      html += `<h4 class="rd-h">📊 ${esc(name)}が実際に釣れている釣り場 <small>直近30日・釣果のあった日数</small></h4>
+      html += `<h4 class="rd-h"><i class="ic ic-chart" aria-hidden="true"></i> ${esc(name)}が実際に釣れている釣り場 <small>直近30日・釣果のあった日数</small></h4>
         <ol class="tg-rank">${top.map((r, i) => `<li class="${r.spotId === sp.id ? 'on' : ''}" data-hot-spot="${r.spotId}" style="--i:${i}" tabindex="0" role="button">
           <span class="tr-no num">${i + 1}</span><span class="tr-name">${esc(r.spot.name)}<small>${esc(r.spot.area)}</small></span>
           <span class="tz-bar"><i style="width:${Math.max(6, (r.d30 / 30) * 100)}%"></i></span>
@@ -392,7 +392,7 @@
   const evLevel = (sp, fish) => (FH.feed.evidenceLevel ? FH.feed.evidenceLevel(sp, fish) : 'C');
   function evidenceChip(sp, fish) {
     const [ic, label, cls] = EV[evLevel(sp, fish)];
-    return `<span class="chip ${cls}" title="根拠：${label}">${ic} ${label}</span>`;
+    return `<span class="chip ${cls}" title="根拠：${label}">${FH.icons.ic(ic)} ${label}</span>`;
   }
   /** 実績の釣果日率 at instant t (engine score without evidence/personal extras, as calibrated). */
   function chanceAt(sp, fish, t) {
@@ -417,8 +417,8 @@
     const parts = [];
     if (k.wind && Math.abs(k.wind.bias) >= 0.7) parts.push(`風は平均${Math.abs(k.wind.bias).toFixed(1)}m/s${k.wind.bias < 0 ? '弱め' : '強め'}に出がち`);
     if (k.wave && Math.abs(k.wave.bias) >= 0.15) parts.push(`波は平均${Math.abs(k.wave.bias).toFixed(1)}m${k.wave.bias < 0 ? '低め' : '高め'}に出がち`);
-    if (!parts.length) return `<p class="muted small">📡 ${k.lead}日前の予報のブレ：風±${k.wind ? k.wind.mae.toFixed(1) : '—'}m/s・波±${k.wave ? k.wave.mae.toFixed(1) : '—'}m（過去${k.days}日の実績）</p>`;
-    return `<p class="small skill-note">📡 過去${k.days}日の実績では、${k.lead}日前の予報は${parts.join('、')}。${k.wind && k.wind.bias <= -0.7 ? '風は強めに見積もってください。' : ''}</p>`;
+    if (!parts.length) return `<p class="muted small"><i class="ic ic-radar" aria-hidden="true"></i> ${k.lead}日前の予報のブレ：風±${k.wind ? k.wind.mae.toFixed(1) : '—'}m/s・波±${k.wave ? k.wave.mae.toFixed(1) : '—'}m（過去${k.days}日の実績）</p>`;
+    return `<p class="small skill-note"><i class="ic ic-radar" aria-hidden="true"></i> 過去${k.days}日の実績では、${k.lead}日前の予報は${parts.join('、')}。${k.wind && k.wind.bias <= -0.7 ? '風は強めに見積もってください。' : ''}</p>`;
   }
   /** ★ favourites side by side for the weekend (engine.favCompare). */
   function renderFavCompare() {
@@ -434,7 +434,7 @@
     const top = fc.rows[0];
     const cell = (v, isBest) => `<td class="${v == null ? 'na' : 'tone-' + tone(v)}${isBest ? ' best' : ''}">${v == null ? '—' : v}</td>`;
     box.innerHTML = `<div class="card fc-card"><div class="card-head"><h3>★ お気に入りの週末比較 <small>各釣り場のいちばん良い魚種・時間帯のピーク</small></h3></div>
-      <p class="tg-call">👉 いちばん良いのは <b>${esc(top.spot.name)} × ${esc(shortName(top.sp.name))}</b>、<b>${fc.days[top.best.d].label}曜の${fc.blocks[top.best.b]}</b>（ピーク ${top.best.score}）</p>
+      <p class="tg-call"><i class="ic ic-arrow" aria-hidden="true"></i> いちばん良いのは <b>${esc(top.spot.name)} × ${esc(shortName(top.sp.name))}</b>、<b>${fc.days[top.best.d].label}曜の${fc.blocks[top.best.b]}</b>（ピーク ${top.best.score}）</p>
       <div class="fc-wrap"><table class="fc"><thead><tr><th rowspan="2"></th>${fc.days.map((d) => `<th colspan="4">${d.label} ${md(d.day)}</th>`).join('')}</tr>
         <tr>${fc.days.map(() => fc.blocks.map((b) => `<th>${b}</th>`).join('')).join('')}</tr></thead>
         <tbody>${fc.rows.map((r) => `<tr class="fc-row" data-spot="${r.spot.id}" data-sp="${r.sp.id}" tabindex="0" role="button"><th><b>${esc(r.spot.name)}</b><small>${esc(shortName(r.sp.name))}</small></th>${r.cells.map((row, di) => row.map((v, bi) => cell(v, di === r.best.d && bi === r.best.b)).join('')).join('')}</tr>`).join('')}</tbody></table></div>
@@ -446,7 +446,7 @@
     const S = FH.SCIENCE || {};
     const items = [...(S[fish.id] || []), ...(sp.water === 'sea' && fish.habitat.includes('sea') ? S._sea || [] : [])];
     if (!items.length) return '';
-    return `<details class="more science" open><summary><span>🔬 研究メモ（論文・公的機関の資料より）</span></summary><ul>${items.map(([t, src, url]) =>
+    return `<details class="more science" open><summary><span><i class="ic ic-flask" aria-hidden="true"></i> 研究メモ（論文・公的機関の資料より）</span></summary><ul>${items.map(([t, src, url]) =>
       `<li>${esc(t)}<a class="small" href="${esc(url)}" target="_blank" rel="noopener">— ${esc(src)}</a></li>`).join('')}</ul></details>`;
   }
   /** 🎯 予測の答え合わせ: score at log time vs what actually happened. */
@@ -455,7 +455,7 @@
     if (!rv.trips.length) return '';
     const V = { hit: ['✓', '的中'], over: ['✗', '予測が高すぎ'], under: ['✗', '予測が低すぎ'], mid: ['△', '中間'] };
     const hits = rv.trips.filter((t) => t.verdict === 'hit').length, judged = rv.trips.filter((t) => t.verdict !== 'mid').length;
-    return `<div class="review"><h4 class="rd-h">🎯 予測の答え合わせ <small>記録した釣行 ${rv.trips.length}回（同じ日・釣り場・魚種は1回）</small></h4>
+    return `<div class="review"><h4 class="rd-h"><i class="ic ic-target" aria-hidden="true"></i> 予測の答え合わせ <small>記録した釣行 ${rv.trips.length}回（同じ日・釣り場・魚種は1回）</small></h4>
       ${judged ? `<p class="tg-call">スコア70以上で釣れた／50未満で釣れなかった＝的中：<b>${hits}/${judged}回</b>${rv.trips.length < 5 ? '（5回以上で傾向が見えてきます）' : ''}</p>` : ''}
       <table class="skill"><thead><tr><th>記録時のスコア</th><th>釣行</th><th>釣れた</th><th>平均匹数</th></tr></thead><tbody>
       ${rv.buckets.map((b) => `<tr><th>${b.label}</th><td>${b.n}</td><td>${b.rate == null ? '—' : Math.round(b.rate * 100) + '%'}</td><td>${b.avg == null ? '—' : b.avg.toFixed(1)}</td></tr>`).join('')}</tbody></table>

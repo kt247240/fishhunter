@@ -67,7 +67,7 @@
       </section>
       <div class="seascape" id="seascape" role="img" aria-label="海中の断面図"></div>
       <article class="card plan-card" id="planCard" hidden>
-        <div class="card-head"><h3>🧭 今日の作戦ボード <small id="planScope"></small></h3><span class="pl-actions"><button class="btn sm" id="btnPlanImg" type="button">📸 画像</button><button class="btn sm" id="btnPlanCopy" type="button">コピー</button></span></div>
+        <div class="card-head"><h3><i class="ic ic-compass" aria-hidden="true"></i> 今日の作戦ボード <small id="planScope"></small></h3><span class="pl-actions"><button class="btn sm" id="btnPlanImg" type="button"><i class="ic ic-camera" aria-hidden="true"></i> 画像</button><button class="btn sm" id="btnPlanCopy" type="button">コピー</button></span></div>
         <div id="plan"></div>
       </article>
       <div class="section-head"><h2>今行くならここ</h2><span class="hint" id="pickHint">今後18時間の全釣り場×魚種から算出</span>
@@ -96,7 +96,7 @@
           </div>
           <div class="focus-actions">
             <a class="btn primary" id="routeLink" target="_blank" rel="noopener">ルート案内</a>
-            <button class="btn" id="btnCard" type="button">📸 画像で共有</button>
+            <button class="btn" id="btnCard" type="button"><i class="ic ic-camera" aria-hidden="true"></i> 画像で共有</button>
             <button class="btn" id="btnShare" type="button">テキスト共有</button>
             <button class="btn" data-goto="hunt" type="button">攻略法を見る</button>
           </div>
@@ -122,23 +122,23 @@
       <section class="ev-tabs" id="evTabs" aria-label="根拠と分析">
         <div class="section-head"><h2>根拠と分析</h2><span class="hint">この釣り場・魚種の裏付け</span></div>
         <div class="seg ev-seg" role="tablist">
-          <button type="button" data-evtab="targetCard" role="tab">🎯 狙い目</button><button type="button" data-evtab="labCard" role="tab">🧠 独自分析</button><button type="button" data-evtab="govCard" role="tab">🏛 県データ</button><button type="button" data-evtab="radarCard" role="tab">📡 釣果</button>
+          <button type="button" data-evtab="targetCard" role="tab"><i class="ic ic-target" aria-hidden="true"></i> 狙い目</button><button type="button" data-evtab="labCard" role="tab"><i class="ic ic-flask" aria-hidden="true"></i> 独自分析</button><button type="button" data-evtab="govCard" role="tab"><i class="ic ic-gov" aria-hidden="true"></i> 県データ</button><button type="button" data-evtab="radarCard" role="tab"><i class="ic ic-radar" aria-hidden="true"></i> 釣果</button>
         </div>
         <div class="ev-panes">
       <article class="card target-card" id="targetCard" hidden>
-        <div class="card-head"><h3>🎯 狙い目 <small id="targetScope"></small></h3><span class="muted small" id="targetStamp"></span></div>
+        <div class="card-head"><h3><i class="ic ic-target" aria-hidden="true"></i> 狙い目 <small id="targetScope"></small></h3><span class="muted small" id="targetStamp"></span></div>
         <div id="target"></div>
       </article>
       <article class="card lab-card" id="labCard" hidden>
-        <div class="card-head"><h3>🧠 独自分析 <small id="labScope"></small></h3></div>
+        <div class="card-head"><h3><i class="ic ic-flask" aria-hidden="true"></i> 独自分析 <small id="labScope"></small></h3></div>
         <div id="lab"></div>
       </article>
       <article class="card gov-card" id="govCard" hidden>
-        <div class="card-head"><h3>🏛 新潟県の海のデータ <small id="govScope"></small></h3></div>
+        <div class="card-head"><h3><i class="ic ic-gov" aria-hidden="true"></i> 新潟県の海のデータ <small id="govScope"></small></h3></div>
         <div id="gov"></div>
       </article>
       <article class="card radar-card" id="radarCard">
-        <div class="card-head"><h3>📡 釣果レーダー <small id="radarScope"></small></h3><span class="muted small" id="radarStamp"></span></div>
+        <div class="card-head"><h3><i class="ic ic-radar" aria-hidden="true"></i> 釣果レーダー <small id="radarScope"></small></h3><span class="muted small" id="radarStamp"></span></div>
         <div id="radar" class="radar"></div>
         <div class="sns-links" id="snsLinks"></div>
       </article>
@@ -158,7 +158,7 @@
             <button class="icon-btn" id="mapPlay" type="button" aria-label="時間を再生">▶</button>
             <input type="range" id="mapHour" min="0" max="71" value="0" step="1" aria-label="表示する時刻">
             <span class="map-hour num" id="mapHourLabel">今</span>
-            <button class="btn sm" id="btnWind" type="button" aria-pressed="false">🌬 風</button>
+            <button class="btn sm" id="btnWind" type="button" aria-pressed="false"><i class="ic ic-wind" aria-hidden="true"></i> 風</button>
           </div>
           <div class="map-tools">
             <div class="seg" id="prefFilter"><button data-pref="" class="on" type="button">全域</button><button data-pref="新潟" type="button">新潟</button><button data-pref="長野" type="button">長野</button></div>
@@ -265,7 +265,7 @@
             <button class="btn sm" id="btnForce" type="button">強制再取得</button>
             <button class="btn sm" id="btnClearCache" type="button">気象キャッシュ削除</button>
             <button class="btn sm" id="btnPrefs" type="button">エリア・魚種を設定</button>
-            <button class="btn sm primary" id="btnInstall" type="button" hidden>📲 ホーム画面に追加</button>
+            <button class="btn sm primary" id="btnInstall" type="button" hidden><i class="ic ic-install" aria-hidden="true"></i> ホーム画面に追加</button>
           </div>
         </article>
         <article class="card about">

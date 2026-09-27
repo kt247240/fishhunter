@@ -32,5 +32,8 @@
       <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity=".55"/></linearGradient></defs>
       <path d="${d}" fill="url(#${id})" stroke="${c}" stroke-width=".8" stroke-linejoin="round"${glow ? ` style="filter:drop-shadow(0 0 6px ${c})"` : ''}/>${eye}</svg>`;
   }
-  FH.icons = { fish, shape: (id) => BY_SPECIES[id] || 'torpedo' };
+  // UI emoji → line icon (css/app.css .ic-*). Plain text, copies and the plan image keep the emoji.
+  const UI = {"🧭": "compass", "🎯": "target", "🧠": "flask", "🏛": "gov", "📡": "radar", "💡": "bulb", "👉": "arrow", "📸": "camera", "📢": "mega", "🎣": "rod", "📈": "trend", "⏰": "clock", "📍": "pin", "📊": "chart", "🔬": "flask", "🌬": "wind", "📲": "install", "📅": "cal", "🚤": "boat", "⛔": "stop", "📋": "clip", "🌡": "thermo", "📦": "box", "🏞": "river", "🌀": "swirl", "🔁": "repeat", "🌊": "wave", "👥": "people", "✅": "check", "🎨": "palette", "🏖": "beach", "🗺": "map", "☁": "cloud", "⚠️": "warn", "👍": "up", "👎": "down", "📝": "note", "🌐": "globe"};
+  const ic = (e) => (UI[e] ? `<i class="ic ic-${UI[e]}" aria-hidden="true"></i>` : e);
+  FH.icons = { fish, ic, shape: (id) => BY_SPECIES[id] || 'torpedo' };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
