@@ -569,6 +569,32 @@
       "deepPages": 18
     },
     {
+      "id": "itoturi-joetsu",
+      "name": "いとう釣具店（上越・磯/波止の釣果表）",
+      "type": "shop",
+      "area": "上越",
+      "spots": [],
+      "mode": "html",
+      "parser": "itoturi",
+      "url": "http://www.itoturi.com/chouka/isohatorealtime.html",
+      "monthUrl": "http://www.itoturi.com/chouka/isohato{Y}-{M}.html",
+      "deepMonths": 13,
+      "factsOnly": true,
+      "note": "事実（日付・魚・場所・サイズ・釣り方）のみ使用。釣り人名・コメントは保存しない（2026-09-27 オーナー判断）"
+    },
+    {
+      "id": "fishers",
+      "name": "本間釣具店 フィッシャーズ（釣果情報）",
+      "type": "shop",
+      "area": null,
+      "spots": [],
+      "mode": "fishers",
+      "url": "https://www.fishers.co.jp/fishinginfo/",
+      "deepPages": 60,
+      "factsOnly": true,
+      "note": "事実（日付・魚・場所・エリア・数・サイズ・釣り方）のみ使用。コメント・写真は保存しない。新潟県外は除外（2026-09-27 オーナー判断）"
+    },
+    {
       "id": "youtube",
       "name": "YouTube（公開動画）",
       "type": "video",

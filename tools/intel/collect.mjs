@@ -29,7 +29,8 @@ const ctx = {}; ctx.globalThis = ctx; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, 'js/spots.js'), 'utf8'), ctx);
 const SPOTS = ctx.FH.SPOTS;
 const AREA_WORDS = [
-  ['上越', /上越|糸魚川|能生|名立|直江津|親不知/], ['中越', /柏崎|長岡|出雲崎|寺泊|燕|三条|魚沼/], ['下越', /新潟市|新潟東港|新潟西港|村上|新発田|聖籠|胎内|岩船/],
+  ['上越', /上越|糸魚川|能生|名立|直江津|親不知|筒石|大潟|柿崎|鵜の浜|郷津|谷浜|茶屋ヶ原|有間川|関川/], ['中越', /柏崎|長岡|出雲崎|寺泊|燕|三条|魚沼|荒浜|鯨波|椎谷|野積|大河津/],
+  ['下越', /新潟市|新潟東港|新潟西港|村上|新発田|聖籠|胎内|岩船|島見|太夫浜|内野|松浜|関屋|五十嵐浜|角田|間瀬|瀬波|笹川|桑川|府屋|寝屋/],
   ['佐渡', /佐渡/], ['北信', /野尻湖|長野市|信濃町|須坂|飯山/], ['中信', /安曇野|松本|大町|木崎湖|青木湖|梓川/], ['東信', /上田|佐久|小海|松原湖/], ['南信', /諏訪|伊那|木曽|天竜/]
 ];
 
@@ -132,6 +133,8 @@ let ARCHIVE_COVERAGE = {};
 // Sources already paged back once (carried in archive.json) — never back-filled again, even when their
 // old posts held nothing useful and the archive coverage therefore still looks short.
 let BACKFILLED = {};
+// Per-source "last item seen" (e.g. Fishers choka_idx), carried in archive.json.
+let CURSOR = {};
 
 async function collectRss(src) {
   const items = [];
@@ -210,6 +213,32 @@ const PARSERS = {
   }
 };
 
+/* いとう釣具店 (上越) 磯・波止 table: date | species | place | size/weight/count | method/bait/time | angler | comment.
+ * Facts only (owner decision 2026-09-27): the angler's name and the comment are never stored; the comment is read
+ * in memory only to tell a surf catch ("サーフ") apart. `ym` = [year, month] of a monthly archive page. */
+const HOKURIKU = /富山|石川|福井|金沢|能登|輪島|富来|志賀|七尾|氷見|入善|黒部|生地|魚津|朝日町|宮崎海岸|滑川|射水|高岡|越前|敦賀|若狭|三国|嶺北|嶺南|加賀|羽咋|珠洲|宇出津|内灘|千里浜/;
+PARSERS.itoturi = function (html, src, ym = null) {
+  const cell = (x) => normalize(stripHtml(x.replace(/<br\s*\/?>/gi, ' '))).replace(/\s+/g, ' ').trim();
+  const nowJ = new Date(NOW + 9 * 3600e3);
+  const page = ym ? src.monthUrl.replace('{Y}', ym[0]).replace('{M}', ym[1]) : src.url;
+  const out = [];
+  for (const row of html.split(/<tr[\s>]/i).slice(1)) {
+    const tds = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => cell(m[1]));
+    if (tds.length < 7) continue;
+    const d = tds[0].match(/^(\d{1,2})\/(\d{1,2})/);
+    if (!d || !tds[1]) continue;
+    let y = ym ? ym[0] : nowJ.getUTCFullYear();
+    if (!ym && +d[1] > nowJ.getUTCMonth() + 1 + 1) y -= 1; // a December row read in January
+    const date = Date.UTC(y, +d[1] - 1, +d[2], 3);
+    const [sp, place, size, how] = tds.slice(1, 5);
+    if (HOKURIKU.test(place)) continue; // the shop also lists 富山 (黒部・生地・魚津) rows
+    const surf = /サーフ|砂浜|海岸|浜/.test(tds[6]) && !/堤防|防波堤|テトラ|港/.test(tds[6]);
+    const key = createHash('sha1').update([date, sp, place, size, how].join('|')).digest('hex').slice(0, 10);
+    out.push({ title: `${d[1]}/${d[2]} ${sp} ${place}`, url: `${page}#${key}`, date, text: `${sp} ${size} ${place}${surf ? ' サーフ' : ''} ${how}` });
+  }
+  return out;
+};
+
 async function collectHtml(src) {
   const r = await get(src.url, 'text/html');
   if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -223,7 +252,7 @@ async function collectHtml(src) {
       const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
       await sleep(1500);
       try {
-        const rr = await get(`${src.url}?yyyy=${y}&mm=${String(m).padStart(2, '0')}`, 'text/html');
+        const rr = await get(src.monthUrl ? src.monthUrl.replace('{Y}', y).replace('{M}', m) : `${src.url}?yyyy=${y}&mm=${String(m).padStart(2, '0')}`, 'text/html');
         if (!rr.ok) continue;
         const old = PARSERS[src.parser](await rr.text(), src, [y, m]);
         HISTORY.push(...old.filter((it) => it.date && NOW - it.date > MAX_AGE).map((it) => toReport(src, it, it.extra || {})).filter(useful));
@@ -233,6 +262,67 @@ async function collectHtml(src) {
   }
   const seen = new Set();
   return items.filter((it) => it.date && NOW - it.date <= MAX_AGE && !seen.has(it.url) && seen.add(it.url)).map((it) => toReport(src, it, it.extra || {})).filter(useful);
+}
+
+/* 本間釣具店 Fishers 釣果情報 (Niigata + Hokuriku). Facts only (owner decision 2026-09-27): date, species, place,
+ * area, count, size, method, bait — never the comment or photos. Each run reads list page 1 and the detail pages
+ * of up to 12 posts newer than the last one seen (CURSOR); the first run also pages the list back once (list
+ * facts only, no detail pages). Posts outside Niigata are dropped. */
+const NIIGATA_AREA = /^(?:新潟県\s*)?(?:上越|中越|下越|佐渡)|^新潟/;
+async function collectFishers(src) {
+  const base = src.url.replace(/[^/]*$/, '');
+  const deep = src.deepPages && !BACKFILLED[src.id];
+  const entries = [];
+  for (let p = 1; p <= (deep ? src.deepPages : 1); p++) {
+    const r = await get(p === 1 ? src.url : `${src.url}?page=${p}`, 'text/html');
+    if (!r.ok) { if (p === 1) throw new Error('HTTP ' + r.status); break; }
+    const html = await r.text();
+    const got = [...html.matchAll(/choka_idx=(\d+)"[\s\S]*?finfo_date">([^<]*)<[\s\S]*?finfo_name">([^<]*)<[\s\S]*?finfo_place">([^<]*)</g)]
+      .map((m) => ({ idx: +m[1], date: m[2].trim(), name: normalize(m[3]).trim(), place: normalize(m[4]).trim() }));
+    if (!got.length) break;
+    entries.push(...got);
+    if (deep) await sleep(1500);
+  }
+  if (deep) BACKFILLED[src.id] = new Date(NOW).toISOString().slice(0, 10);
+  const last = CURSOR[src.id] || 0;
+  const fresh = entries.filter((e) => e.idx > last).sort((a, b) => b.idx - a.idx).slice(0, 12);
+  const details = new Map();
+  for (const e of fresh) {
+    await sleep(1000);
+    try {
+      const r = await get(`${base}finfo_page.html?choka_idx=${e.idx}`, 'text/html');
+      if (!r.ok) continue;
+      const html = await r.text();
+      const f = {};
+      for (const m of html.matchAll(/d_ttl">([^<]*)<\/div>\s*<\/dt>\s*<dd>([\s\S]*?)<\/dd>/g)) f[m[1].trim()] = normalize(stripHtml(m[2])).replace(/\s+/g, ' ').trim();
+      details.set(e.idx, f);
+    } catch (_) { /* list facts only */ }
+  }
+  if (entries.length) CURSOR[src.id] = Math.max(last, ...entries.map((e) => e.idx));
+  const items = [];
+  for (const e of entries) {
+    const f = details.get(e.idx) || {};
+    const where = `${f['エリア'] || ''} ${f['場所'] || e.place}`;
+    const niigata = f['エリア'] ? NIIGATA_AREA.test(f['エリア']) : (!HOKURIKU.test(e.place) && (areaOf(e.place, null) || matchSpots(e.place, SPOTS).length));
+    if (!niigata || HOKURIKU.test(where)) continue;
+    const m = e.date.match(/(20\d{2})\/(\d{1,2})\/(\d{1,2})/);
+    if (!m) continue;
+    const area = (f['エリア'] || '').match(/上越|中越|下越|佐渡/);
+    const count = (f['釣果'] || '').match(/(\d{1,3})\s*(匹|本|杯|尾|枚)/);
+    const size = (f['サイズ'] || '').replace(/㎝/g, 'cm');
+    const text = [e.name, size, count ? count[0] : '', f['場所'] || e.place, f['釣り方'] || '', f['エサ/ルアー'] || f['エサ／ルアー'] || ''].filter(Boolean).join(' ');
+    items.push({ it: { title: `${e.name} ${f['場所'] || e.place}`, url: `${base}finfo_page.html?choka_idx=${e.idx}`, date: Date.UTC(+m[1], +m[2] - 1, +m[3], 3), text }, area: area ? area[0] : null });
+  }
+  // A post in the catch-report section is a catch even when the list only names the fish ("アジ 新潟東港周辺").
+  const rep = ({ it, area }) => {
+    let cs = extractCatches(`${it.title}\n${it.text}`).filter((c) => !c.mention);
+    if (!cs.length) cs = extractCatches(it.title.split(' ')[0] + ' 釣れた').map((c) => Object.assign(c, { mention: false }));
+    const r = toReport(src, it, { catches: cs });
+    if (area) r.area = area;
+    return r;
+  };
+  HISTORY.push(...items.filter((x) => NOW - x.it.date > MAX_AGE).map(rep).filter(useful));
+  return items.filter((x) => NOW - x.it.date <= MAX_AGE).map(rep).filter(useful);
 }
 
 /* ───────── YouTube Data API v3 (official; needs YOUTUBE_API_KEY) ─────────
@@ -511,6 +601,7 @@ async function main() {
   const prevArchive = await previousArchive();
   ARCHIVE_COVERAGE = prevArchive.schema === ARCHIVE_SCHEMA ? coverage(prevArchive) : {}; // older schema → re-read history once
   BACKFILLED = prevArchive.schema === ARCHIVE_SCHEMA ? Object.assign({}, prevArchive.backfilled) : {};
+  CURSOR = Object.assign({}, prevArchive.cursor);
   // Records archived before shore kinds existed: take the kind from their spots' type when they agree.
   for (const x of prevArchive.records || []) {
     if (x.k || x.t === 'boat' || INLAND.has(x.a)) continue;
@@ -520,7 +611,7 @@ async function main() {
   for (const src of cfg.sources) {
     const t0 = Date.now();
     try {
-      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'bsky' ? await collectBsky(src) : src.mode === 'youtube' ? await collectYoutube(src) : src.mode === 'instagram' ? await collectInstagram(src) : [];
+      const r = src.mode === 'rss' ? await collectRss(src) : src.mode === 'html' ? await collectHtml(src) : src.mode === 'fishers' ? await collectFishers(src) : src.mode === 'bsky' ? await collectBsky(src) : src.mode === 'youtube' ? await collectYoutube(src) : src.mode === 'instagram' ? await collectInstagram(src) : [];
       reports.push(...r);
       health.push({ id: src.id, name: src.name, type: src.type, ok: true, count: r.length, ms: Date.now() - t0 });
     } catch (e) {
@@ -550,6 +641,7 @@ async function main() {
   // Long-term evidence: rolling archive (carried over via the live site) → hotspots.
   const archive = mergeArchive(prevArchive, [...list, ...HISTORY], NOW);
   archive.backfilled = BACKFILLED;
+  archive.cursor = CURSOR;
   fs.writeFileSync(path.join(path.dirname(OUT), 'archive.json'), JSON.stringify(archive));
   const hot = buildHotspots(archive, NOW, { speciesIds: ctx.FH.SPECIES.map((s) => s.id) });
   fs.writeFileSync(path.join(path.dirname(OUT), 'hotspots.json'), JSON.stringify(hot));
