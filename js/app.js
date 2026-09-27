@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v34.2.0 ICONS';
+  const VERSION = 'v34.3.0 FUTURE';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
@@ -97,9 +97,9 @@
     FH.motion.transition(() => {
       $$('.view').forEach((v) => { v.hidden = v.dataset.view !== view; });
       $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === view));
+      FH.motion.tabIndicator($('#tabbar')); // after 'on' moved (the transition runs this callback later)
       render();
     });
-    FH.motion.tabIndicator($('#tabbar'));
     if (view !== 'map' && playTimer) togglePlay(false);
     if (view !== 'now') { $('#miniBar').hidden = true; document.querySelector('.topbar').classList.remove('compact'); }
     if (view === 'map') FH.map.invalidate();

@@ -800,3 +800,4 @@ h1, h2, h3, h4 { letter-spacing: .01em; }
 .pl-ic .ic { width: 22px; height: 22px; color: var(--accent); }
 .chip .ic { width: 1em; height: 1em; }
 @media (prefers-reduced-motion: reduce) { .tz-bar i, .rd-bar i { animation: none; } }
+input[type="file"]::file-selector-button { font: inherit; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 12px; padding: 8px 14px; margin-right: 10px; cursor: pointer; }
