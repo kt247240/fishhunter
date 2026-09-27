@@ -4,7 +4,7 @@
   const FH = g.FH;
   const { esc, $, $$, hm, md, dayLabel, range, ago, f1, ring, tone } = FH.ui;
   const E = FH.engine;
-  const VERSION = 'v34.6.0 TYPE';
+  const VERSION = 'v34.7.0 DELA';
   const HOUR = 3600e3;
   const LS = { spot: 'fh.spot', sp: 'fh.sp', view: 'fh.view', theme: 'fh.theme' };
 
